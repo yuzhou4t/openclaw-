@@ -358,8 +358,37 @@ function toggleReadingList(id) {
   applyFilters();
 }
 
-function viewPaper(id) {
-  const paper = papersData.find(p => p.id === id);
+async function viewPaper(id) {
+  // 先从本地数据查找
+  let paper = papersData.find(p => p.id === id);
+
+  // 如果本地没有，从 API 获取
+  if (!paper) {
+    try {
+      const response = await fetch(`${API_BASE}/api/papers/${id}`);
+      if (response.ok) {
+        const apiPaper = await response.json();
+        // 转换为前端格式
+        paper = {
+          id: parseInt(apiPaper.id),
+          title: apiPaper.title,
+          authors: apiPaper.authors,
+          source: apiPaper.source || 'arXiv',
+          date: apiPaper.date,
+          abstract: apiPaper.abstract,
+          category: mapCategoryToEnglish(apiPaper.category),
+          subcategory: apiPaper.subcategory,
+          tags: apiPaper.tags || [],
+          citations: apiPaper.citations || 0,
+          pdfUrl: apiPaper.pdfUrl || '',
+          url: apiPaper.url || `https://arxiv.org/abs/${apiPaper.id}`
+        };
+      }
+    } catch (e) {
+      console.error('Failed to fetch paper:', e);
+    }
+  }
+
   if (!paper) return;
 
   // 标记已读
@@ -1142,18 +1171,19 @@ async function showPushHistory() {
       dayPush.papers.forEach(paper => {
         const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
         const isHot = paper.citations > 5000;
+        const categoryClass = mapCategoryToEnglish(paper.category) || paper.category;
 
         html += `
           <div class="paper-card" onclick="viewPaper('${paper.id}')">
             <div class="paper-header">
-              <span class="paper-category ${paper.category}">${paper.category}</span>
+              <span class="paper-category ${categoryClass}">${paper.category}</span>
               ${isNew ? '<span class="paper-badge new">🆕</span>' : ''}
               ${isHot ? '<span class="paper-badge hot">🔥</span>' : ''}
             </div>
             <h3 class="paper-title">${paper.title}</h3>
             <div class="paper-meta">
               <span class="paper-authors">${paper.authors.join(', ')}</span>
-              <span class="paper-source">${paper.venue}</span>
+              <span class="paper-source">${paper.source || paper.venue || 'arXiv'}</span>
               <span class="paper-date">${paper.date}</span>
             </div>
             <p class="paper-abstract">${paper.abstract}</p>
@@ -1268,12 +1298,13 @@ async function renderDailyPush() {
     pushGrid.innerHTML = pushPapers.map(paper => {
       const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
       const isHot = paper.citations > 5000;
+      const categoryClass = mapCategoryToEnglish(paper.category) || paper.category;
 
       return `
         <div class="push-card" onclick="viewPaper('${paper.id}')">
-          <span class="push-card-tag ${paper.category}">${paper.category}</span>
+          <span class="push-card-tag ${categoryClass}">${paper.category}</span>
           <h4 class="push-card-title">${paper.title}</h4>
-          <div class="push-card-meta">${paper.venue}</div>
+          <div class="push-card-meta">${paper.source || paper.venue || 'arXiv'}</div>
           ${isNew ? '<span class="push-card-badge new">🆕 新论文</span>' : ''}
           ${isHot ? '<span class="push-card-badge hot">🔥 热门</span>' : ''}
         </div>
