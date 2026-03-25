@@ -1323,7 +1323,7 @@ async function loadPapersFromAPI() {
         id: parseInt(p.id),
         title: p.title,
         authors: p.authors,
-        source: p.venue || 'arXiv',
+        source: p.source || 'arXiv',
         date: p.date,
         abstract: p.abstract,
         category: mapCategoryToEnglish(p.category),
@@ -1331,7 +1331,7 @@ async function loadPapersFromAPI() {
         tags: p.tags || [],
         citations: p.citations || 0,
         pdfUrl: p.pdfUrl || '',
-        url: p.pdfUrl || ''
+        url: p.url || `https://arxiv.org/abs/${p.id}`
       }));
     }
     return null;
