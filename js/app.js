@@ -220,10 +220,20 @@ function renderSubcategories(category) {
     return;
   }
 
-  elements.subcategoryList.innerHTML = subcategoriesData[category].map(sub => `
+  // 统计每个子领域的论文数量
+  const subCounts = {};
+  papersData.forEach(paper => {
+    if (paper.category === category && paper.subcategory) {
+      subCounts[paper.subcategory] = (subCounts[paper.subcategory] || 0) + 1;
+    }
+  });
+
+  elements.subcategoryList.innerHTML = subcategoriesData[category].map(sub => {
+    const count = subCounts[sub] || 0;
+    return `
     <a href="#" class="subcategory-item ${state.currentSubcategory === sub ? 'active' : ''}"
-       onclick="selectSubcategory('${sub}')">${sub}</a>
-  `).join("");
+       onclick="selectSubcategory('${sub}')">${sub} <span class="sub-count">(${count})</span></a>
+  `}).join("");
 
   elements.subcategoryList.classList.add("show");
 }
