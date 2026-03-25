@@ -459,76 +459,7 @@ function mapToSubcategory(content, category) {
   // 默认返回"其他"
   return '其他';
 }
-  // 地震保险
-  if (lower.includes('earthquake insurance') || lower.includes('seismic') || lower.includes('earthquake risk')) {
-    return '地震保险';
-  }
-  // 洪水/飓风保险
-  if (lower.includes('hurricane') || lower.includes('flood insurance') || lower.includes('windstorm') ||
-      lower.includes('tropical cyclone') || lower.includes('typhoon')) {
-    return '洪水/飓风保险';
-  }
-  // 气候风险建模
-  if (lower.includes('climate change') || lower.includes('climate risk') || lower.includes('extreme event') ||
-      lower.includes('catastrophe model') || lower.includes('climate scenario') || lower.includes('global warming') ||
-      lower.includes('physical risk') || lower.includes('transition risk')) {
-    return '气候风险建模';
-  }
-  // 再保险
-  if (lower.includes('reinsurance') || lower.includes('retrocession') || lower.includes('cat bond') ||
-      lower.includes('insurance-linked') || lower.includes('risk transfer')) {
-    return '再保险';
-  }
 
-  // ========== 农业保险子领域 ==========
-  // 农作物保险
-  if (lower.includes('crop insurance') || lower.includes('agricultural insurance') || lower.includes('farming') ||
-      lower.includes('yield insurance') || lower.includes('drought') || lower.includes('frost') ||
-      lower.includes('pest') || lower.includes('harvest')) {
-    return '农作物保险';
-  }
-  // 畜牧保险
-  if (lower.includes('livestock insurance') || lower.includes('animal insurance') || lower.includes('cattle') ||
-      lower.includes('poultry') || lower.includes('aquaculture')) {
-    return '畜牧保险';
-  }
-  // 天气指数保险
-  if (lower.includes('weather index') || lower.includes('index insurance') || lower.includes('rainfall') ||
-      lower.includes('temperature') || lower.includes('ndvi') || lower.includes('vegetation')) {
-    return '天气指数保险';
-  }
-  // 农业信贷
-  if (lower.includes('agricultural credit') || lower.includes('farm credit') || lower.includes('agricultural loan') ||
-      lower.includes('crop loan') || lower.includes('seasonal credit')) {
-    return '农业信贷';
-  }
-
-  // ========== 普惠金融子领域 ==========
-  // 数字普惠金融
-  if (lower.includes('digital finance') || lower.includes('digital inclusion') || lower.includes('fintech') ||
-      lower.includes('mobile payment') || lower.includes('digital banking') || lower.includes('e-finance') ||
-      lower.includes('internet finance') || lower.includes('big data finance')) {
-    return '数字普惠金融';
-  }
-  // 农村信贷
-  if (lower.includes('rural finance') || lower.includes('rural credit') || lower.includes('agricultural finance') ||
-      lower.includes('rural banking') || lower.includes('village bank') || lower.includes('county economy')) {
-    return '农村信贷';
-  }
-  // 小微金融
-  if (lower.includes('microfinance') || lower.includes('small business') || lower.includes('sme finance') ||
-      lower.includes('enterprise credit') || lower.includes('private business') || lower.includes('self-employed')) {
-    return '小微金融';
-  }
-  // 金融排斥
-  if (lower.includes('financial exclusion') || lower.includes('financial inclusion') || lower.includes('unbanked') ||
-      lower.includes('underbanked') || lower.includes('financial access') || lower.includes('financial literacy') ||
-      lower.includes('poverty') || lower.includes('development finance')) {
-    return '金融排斥';
-  }
-
-  return '其他'; // 默认子领域
-}
 
 /**
  * 提取标签
