@@ -8,13 +8,13 @@ const axios = require('axios');
 // arXiv API 地址
 const ARXIV_API = 'https://export.arxiv.org/api/query';
 
-// 五大领域的搜索关键词
+// 五大领域的搜索关键词（使用更广泛的分类和关键词组合）
 const CATEGORY_QUERIES = {
-  '大模型': 'cat:cs.CL OR cat:cs.AI OR cat:cs.LG',  // LLM, AI, ML
-  '行为金融': 'cat:q-fin.GN OR cat:q-fin.ST OR cat:q-fin.TR',  // General Finance, Trading
-  '巨灾保险': 'cat:q-fin.RM OR cat:stat.AP',  // Risk Management, Applied Probability
-  '农业保险': 'cat:q-fin.AG OR cat:econ.GN',  // Finance, General Economics
-  '普惠金融': 'cat:q-fin.GN OR cat:econ.PR'  // Finance, Economic Policy
+  '大模型': 'cat:cs.CL OR cat:cs.AI OR cat:cs.LG OR cat:cs.CV OR all:machine learning',  // LLM, AI, ML, Computer Vision
+  '行为金融': 'all:behavioral finance OR all:investor sentiment OR all:market anomaly OR cat:q-fin.ST',  // Finance, Trading
+  '巨灾保险': 'all:catastrophe insurance OR all:climate risk OR all:hurricane OR cat:q-fin.RM',  // Risk Management
+  '农业保险': 'all:agricultural insurance OR all:crop insurance OR all:weather index OR cat:q-fin.AG',  // Agricultural Finance
+  '普惠金融': 'all:financial inclusion OR all:rural finance OR all:microfinance OR cat:q-fin.GN'  // General Finance
 };
 
 // 搜索关键词
