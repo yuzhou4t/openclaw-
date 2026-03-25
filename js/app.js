@@ -1308,7 +1308,7 @@ function markPushAsRead(paperId) {
 // ===================================
 // API Configuration
 // ===================================
-const API_BASE = 'https://paperhub-api.paperhub-api-2026.workers.dev';
+const API_BASE = '';
 
 // ===================================
 // API Functions

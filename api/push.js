@@ -1,11 +1,11 @@
 /**
  * 每日推送 API
+ * 从 arXiv 自动获取最新论文
  */
 
-// 2025年以前的论文已移除
-const paperDatabase = [];
+const arxiv = require('./arxiv');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
   // 解析路径
   let path = req.url.split('?')[0];
   if (path.startsWith('/api/')) {
@@ -20,19 +20,17 @@ module.exports = (req, res) => {
   // /api/push/daily - 获取今日推送
   if (pathParts.includes('daily')) {
     const today = new Date();
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    // 从 arXiv 获取论文
+    const allPapers = await arxiv.getCachedPapers();
 
     // 筛选最近3天发表的论文
-    const recentPapers = paperDatabase.filter(paper => {
-      const paperDate = new Date(paper.date);
-      return paperDate >= threeDaysAgo && paperDate <= today;
-    });
+    const recentPapers = arxiv.filterRecentPapers(allPapers, 3);
 
     // 按日期排序，最新的在前
     recentPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // 如果有最近3天的新论文，最多推送5篇；否则显示暂无内容
+    // 最多推送5篇
     const dailyPapers = recentPapers.slice(0, 5);
     const hasNewPapers = dailyPapers.length > 0;
 
@@ -48,8 +46,9 @@ module.exports = (req, res) => {
   if (pathParts.includes('history')) {
     const history = [];
     const today = new Date();
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    // 从 arXiv 获取论文
+    const allPapers = await arxiv.getCachedPapers();
 
     // 生成过去7天的推送记录
     for (let i = 0; i < 7; i++) {
@@ -62,7 +61,7 @@ module.exports = (req, res) => {
       dayStart.setDate(dayStart.getDate() - 3);
       const dayEnd = new Date(date);
 
-      const dayPapers = paperDatabase.filter(paper => {
+      const dayPapers = allPapers.filter(paper => {
         const paperDate = new Date(paper.date);
         return paperDate >= dayStart && paperDate <= dayEnd;
       }).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);

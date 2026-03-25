@@ -1,22 +1,25 @@
 /**
  * 论文 API
+ * 从 arXiv 自动获取最新论文
  */
 
-// 2025年以前的论文已移除，仅保留2025年及以后的论文
-const mockPapers = [];
+const arxiv = require('./arxiv');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
   const { category, keyword, page = 1, limit = 20 } = req.query;
-  // 解析路径，去掉 query string 和前导的 api/
+
+  // 解析路径
   let path = req.url.split('?')[0];
   if (path.startsWith('/api/')) {
-    path = path.slice(5); // 去掉 /api/ 前缀
+    path = path.slice(5);
   }
   const pathParts = path.split('/').filter(p => p);
 
   // /api/papers - 获取论文列表
   if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === 'papers')) {
-    let filtered = [...mockPapers];
+    // 从 arXiv 获取论文
+    const allPapers = await arxiv.getCachedPapers();
+    let filtered = [...allPapers];
 
     if (category && category !== 'all') {
       filtered = filtered.filter(p => p.category === category);
@@ -30,6 +33,9 @@ module.exports = (req, res) => {
         (Array.isArray(p.authors) && p.authors.some(a => a.toLowerCase().includes(kw)))
       );
     }
+
+    // 按日期排序，最新的在前
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const currentPage = parseInt(page);
     const currentLimit = parseInt(limit);
@@ -46,9 +52,10 @@ module.exports = (req, res) => {
     });
   }
 
-  // /api/papers/hot - 获取热门论文
+  // /api/papers/hot - 获取热门论文（按引用排序）
   if (pathParts.includes('hot')) {
-    const hotPapers = [...mockPapers]
+    const allPapers = await arxiv.getCachedPapers();
+    const hotPapers = [...allPapers]
       .sort((a, b) => b.citations - a.citations)
       .slice(0, 10);
     return res.status(200).json(hotPapers);
@@ -59,19 +66,23 @@ module.exports = (req, res) => {
     const queryIndex = pathParts.indexOf('search');
     const query = decodeURIComponent(pathParts[queryIndex + 1] || '');
     const kw = query.toLowerCase();
-    const results = mockPapers.filter(p =>
+
+    const allPapers = await arxiv.getCachedPapers();
+    const results = allPapers.filter(p =>
       p.title.toLowerCase().includes(kw) ||
       p.abstract.toLowerCase().includes(kw) ||
       (Array.isArray(p.authors) && p.authors.some(a => a.toLowerCase().includes(kw))) ||
       (Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(kw)))
     );
+
     return res.status(200).json({ papers: results, total: results.length });
   }
 
   // /api/papers/:id - 获取单个论文详情
   if (pathParts.length === 2 && !pathParts.includes('hot') && !pathParts.includes('search')) {
     const id = pathParts[1];
-    const paper = mockPapers.find(p => p.id === id);
+    const allPapers = await arxiv.getCachedPapers();
+    const paper = allPapers.find(p => p.id === id);
     if (paper) {
       return res.status(200).json(paper);
     }
