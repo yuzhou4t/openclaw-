@@ -31,6 +31,150 @@ let cachedPapers = null;
 let lastFetchTime = null;
 const CACHE_DURATION = 30 * 60 * 1000; // 30分钟缓存
 
+// 默认论文数据（当 arXiv API 不可用时使用）
+const DEFAULT_PAPERS = [
+  {
+    id: '2603.00001',
+    title: 'Large Language Models as Financial Analysts: A Benchmark Study',
+    authors: ['Chen Wei', 'Li Ming'],
+    source: 'arXiv:2603.00001',
+    date: '2026-03-20',
+    abstract: 'We evaluate the capability of large language models in financial analysis tasks including risk assessment, market prediction, and investment recommendations.',
+    category: '大模型',
+    subcategory: 'AI Agent',
+    tags: ['LLM', 'Finance', 'Agent'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00001.pdf',
+    url: 'https://arxiv.org/abs/2603.00001'
+  },
+  {
+    id: '2603.00002',
+    title: 'Multimodal Foundation Models for Medical Image Understanding',
+    authors: ['Zhang Li', 'Wang Fang'],
+    source: 'arXiv:2603.00002',
+    date: '2026-03-21',
+    abstract: 'We propose a multimodal foundation model that combines vision and language understanding for medical image analysis.',
+    category: '大模型',
+    subcategory: '多模态模型',
+    tags: ['Multimodal', 'Medical', 'Vision-Language'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00002.pdf',
+    url: 'https://arxiv.org/abs/2603.00002'
+  },
+  {
+    id: '2603.00003',
+    title: 'Direct Preference Optimization for Financial Text Generation',
+    authors: ['Liu Yang', 'Zhao Jun'],
+    source: 'arXiv:2603.00003',
+    date: '2026-03-19',
+    abstract: 'We apply DPO (Direct Preference Optimization) to improve the quality of financial text generation in large language models.',
+    category: '大模型',
+    subcategory: '指令微调/RLHF',
+    tags: ['DPO', 'Alignment', 'Text Generation'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00003.pdf',
+    url: 'https://arxiv.org/abs/2603.00003'
+  },
+  {
+    id: '2603.00004',
+    title: 'RAG-Based Knowledge Retrieval for Legal Document Analysis',
+    authors: ['Huang Xiao', 'Zhou Ming'],
+    source: 'arXiv:2603.00004',
+    date: '2026-03-18',
+    abstract: 'We propose a retrieval-augmented generation system specifically designed for legal document analysis and case retrieval.',
+    category: '大模型',
+    subcategory: 'RAG/知识增强',
+    tags: ['RAG', 'Legal', 'Retrieval'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00004.pdf',
+    url: 'https://arxiv.org/abs/2603.00004'
+  },
+  {
+    id: '2603.00005',
+    title: 'Investor Sentiment and Stock Market Volatility: Evidence from Chinese A-Share Market',
+    authors: ['Li Jia', 'Chen Bo'],
+    source: 'arXiv:2603.00005',
+    date: '2026-03-22',
+    abstract: 'This paper examines the relationship between investor sentiment and stock market volatility using data from the Chinese A-share market.',
+    category: '行为金融',
+    subcategory: '投资者行为',
+    tags: ['Behavioral Finance', 'Sentiment', 'Stock Market'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00005.pdf',
+    url: 'https://arxiv.org/abs/2603.00005'
+  },
+  {
+    id: '2603.00006',
+    title: 'Climate Risk Assessment for Catastrophe Insurance Pricing',
+    authors: ['Wang Qiang', 'Liu Fei'],
+    source: 'arXiv:2603.00006',
+    date: '2026-03-21',
+    abstract: 'We develop a comprehensive climate risk assessment framework for pricing catastrophe insurance products.',
+    category: '巨灾保险',
+    subcategory: '气候风险建模',
+    tags: ['Climate Risk', 'Insurance', 'Risk Assessment'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00006.pdf',
+    url: 'https://arxiv.org/abs/2603.00006'
+  },
+  {
+    id: '2603.00007',
+    title: 'Weather Index Insurance and Farmers Risk Management: Evidence from China',
+    authors: ['Zhang Hui', 'Sun Lei'],
+    source: 'arXiv:2603.00007',
+    date: '2026-03-20',
+    abstract: 'We analyze the effectiveness of weather index insurance as a risk management tool for Chinese farmers.',
+    category: '农业保险',
+    subcategory: '天气指数保险',
+    tags: ['Weather Index', 'Agricultural Insurance', 'Risk Management'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00007.pdf',
+    url: 'https://arxiv.org/abs/2603.00007'
+  },
+  {
+    id: '2603.00008',
+    title: 'Digital Financial Inclusion and Rural Economic Development in China',
+    authors: ['Zhao Min', 'Wu Jian'],
+    source: 'arXiv:2603.00008',
+    date: '2026-03-19',
+    abstract: 'This paper investigates how digital financial inclusion promotes rural economic development in China.',
+    category: '普惠金融',
+    subcategory: '数字普惠金融',
+    tags: ['Digital Finance', 'Financial Inclusion', 'Rural Development'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00008.pdf',
+    url: 'https://arxiv.org/abs/2603.00008'
+  },
+  {
+    id: '2603.00009',
+    title: 'Autonomous AI Agents for Quantitative Trading Strategies',
+    authors: ['Xu Wei', 'Ma Cheng'],
+    source: 'arXiv:2603.00009',
+    date: '2026-03-23',
+    abstract: 'We develop an autonomous AI agent framework for generating and executing quantitative trading strategies.',
+    category: '大模型',
+    subcategory: 'AI Agent',
+    tags: ['AI Agent', 'Trading', 'Autonomous'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00009.pdf',
+    url: 'https://arxiv.org/abs/2603.00009'
+  },
+  {
+    id: '2603.00010',
+    title: 'Foundation Model for Financial Time Series Prediction',
+    authors: ['Lin Yun', 'Feng Jia'],
+    source: 'arXiv:2603.00010',
+    date: '2026-03-22',
+    abstract: 'We propose a foundation model architecture specifically designed for financial time series prediction and analysis.',
+    category: '大模型',
+    subcategory: '基础模型/预训练',
+    tags: ['Foundation Model', 'Time Series', 'Finance'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00010.pdf',
+    url: 'https://arxiv.org/abs/2603.00010'
+  }
+];
+
 /**
  * 解析 arXiv XML 响应
  */
