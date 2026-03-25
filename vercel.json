@@ -1,0 +1,22 @@
+{
+  "rewrites": [
+    { "source": "/api/papers", "destination": "/api/papers.js" },
+    { "source": "/api/papers/hot", "destination": "/api/papers.js" },
+    { "source": "/api/papers/search/:query", "destination": "/api/papers.js" },
+    { "source": "/api/push/daily", "destination": "/api/push.js" },
+    { "source": "/api/push/history", "destination": "/api/push.js" },
+    { "source": "/api/tags", "destination": "/api/tags.js" },
+    { "source": "/api/categories", "destination": "/api/categories.js" },
+    { "source": "/api/auth/login", "destination": "/api/auth.js" },
+    { "source": "/api/auth/register", "destination": "/api/auth.js" },
+    { "source": "/api/user/profile", "destination": "/api/user.js" },
+    { "source": "/api/cron", "destination": "/api/cron.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

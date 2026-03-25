@@ -1,0 +1,17 @@
+name: Daily Cron Job
+
+on:
+  schedule:
+    # 每天早上 8 点 (UTC) = 下午 4 点 (北京时间)
+    - cron: '0 8 * * *'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  trigger-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger PaperHub Cron API
+        run: |
+          curl -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://api.yourpaperhub.workers.dev/api/cron

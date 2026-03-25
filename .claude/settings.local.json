@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.paperpush.today)",
+      "Bash(curl -I \"https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/ccv2%2F2026-03-24%2FMiniMax-M2.5%2F1935214161508180268%2F60c786302e4711a189113d08b40f067a6016df2148371bbd8a7cd1752041c00f..png?Expires=1774442978&OSSAccessKeyId=LTAI5tGLnRTkBjLuYPjNcKQ8&Signature=44ozf6RmmtSKqtUjAOcrukPTe7U%3D\")",
+      "WebSearch",
+      "Bash(npm i:*)",
+      "Bash(npm list:*)",
+      "Bash(vercel --yes --prod)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel --yes --prod --name paperhub)",
+      "Bash(curl -s \"https://paperhub-liart.vercel.app/api/papers\")",
+      "Bash(curl -s \"https://paperhub-l1ff5nf8m-aaawdeewfjfjfjfjfj-8086s-projects.vercel.app/api/papers\")",
+      "Bash(curl -I \"https://paperhub-liart.vercel.app/api/papers\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/papers\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/tags\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/categories\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/papers?page=1&limit=5\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/papers.js\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/\")",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" \"https://paperhub-liart.vercel.app\")",
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/cron\")"
+    ],
+    "additionalDirectories": [
+      "/Users/yuzhou4tc/爱网站/data",
+      "/Users/yuzhou4tc/爱网站/scripts",
+      "/Users/yuzhou4tc/Public"
+    ]
+  }
+}
