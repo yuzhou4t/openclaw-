@@ -400,15 +400,6 @@ function mapToSubcategory(content) {
 
   return '其他'; // 默认子领域
 }
-  if (lower.includes('small business') || lower.includes('sme')) {
-    return '小微金融';
-  }
-  if (lower.includes('exclusion') || lower.includes('financial access')) {
-    return '金融排斥';
-  }
-
-  return '其他';
-}
 
 /**
  * 提取标签
@@ -527,6 +518,12 @@ async function getCachedPapers(forceRefresh = false) {
   cachedPapers = await fetchAllPapers(15);
   lastFetchTime = now;
   console.log(`[arXiv] Fetched ${cachedPapers.length} papers`);
+
+  // 如果 arXiv API 不可用，使用默认论文数据
+  if (cachedPapers.length === 0) {
+    console.log('[arXiv] Using DEFAULT_PAPERS as fallback');
+    cachedPapers = DEFAULT_PAPERS;
+  }
 
   return cachedPapers;
 }
