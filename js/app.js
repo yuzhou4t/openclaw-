@@ -1263,6 +1263,18 @@ async function renderDailyPush() {
     const today = new Date();
     pushDate.textContent = `· ${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
 
+    // 检查是否有新论文
+    if (!data.hasNewPapers || pushPapers.length === 0) {
+      pushGrid.innerHTML = `
+        <div class="push-card empty">
+          <div class="push-empty-icon">📭</div>
+          <div class="push-empty-text">${data.message || '今日暂无内容'}</div>
+          <div class="push-empty-hint">最近3天无新论文</div>
+        </div>
+      `;
+      return;
+    }
+
     // 渲染推送卡片
     pushGrid.innerHTML = pushPapers.map(paper => {
       const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
