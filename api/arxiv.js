@@ -69,8 +69,8 @@ function parseArxivResponse(xmlText) {
         abstract: summary.replace(/\s+/g, ' ').substring(0, 500),
         source: journal,
         date: published.split('T')[0],
-        category: mapToCategory(categories),
-        subcategory: categories,
+        category: mapToCategory(title + ' ' + summary),
+        subcategory: mapToSubcategory(title + ' ' + summary),
         tags: extractTags(title + ' ' + summary),
         citations: 0,
         pdfUrl: pdfUrl,
@@ -84,33 +84,120 @@ function parseArxivResponse(xmlText) {
 }
 
 /**
- * 根据内容映射到类别
+ * 根据内容映射到主分类
  */
 function mapToCategory(content) {
   const lower = content.toLowerCase();
 
   if (lower.includes('language model') || lower.includes('llm') || lower.includes('gpt') ||
       lower.includes('transformer') || lower.includes('attention') || lower.includes('multimodal') ||
-      lower.includes('bert') || lower.includes('neural network') || lower.includes('deep learning')) {
+      lower.includes('bert') || lower.includes('neural network') || lower.includes('deep learning') ||
+      lower.includes('reinforcement learning') || lower.includes('instruction tuning')) {
     return '大模型';
   }
   if (lower.includes('behavioral') || lower.includes('investor') || lower.includes('sentiment') ||
-      lower.includes('finance') || lower.includes('market')) {
+      lower.includes('finance') || lower.includes('market anomaly')) {
     return '行为金融';
   }
-  if (lower.includes('catastrophe') || lower.includes('insurance') || lower.includes('climate') ||
-      lower.includes('hurricane') || lower.includes('risk')) {
+  if (lower.includes('catastrophe') || lower.includes('insurance') || lower.includes('climate risk') ||
+      lower.includes('hurricane') || lower.includes('earthquake')) {
     return '巨灾保险';
   }
-  if (lower.includes('agricultural') || lower.includes('crop') || lower.includes('weather') ||
-      lower.includes('farm')) {
+  if (lower.includes('agricultural') || lower.includes('crop') || lower.includes('weather index') ||
+      lower.includes('farm') || lower.includes('livestock')) {
     return '农业保险';
   }
-  if (lower.includes('inclusive') || lower.includes('rural') || lower.includes('financial inclusion')) {
+  if (lower.includes('inclusive') || lower.includes('rural') || lower.includes('financial inclusion') ||
+      lower.includes('microfinance') || lower.includes('digital finance')) {
     return '普惠金融';
   }
 
   return '大模型'; // 默认
+}
+
+/**
+ * 根据内容映射到子领域
+ */
+function mapToSubcategory(content) {
+  const lower = content.toLowerCase();
+
+  // 大模型子领域
+  if (lower.includes('pre-train') || lower.includes('foundation model') || lower.includes('llama') ||
+      lower.includes('gpt-4') || lower.includes('gpt-3')) {
+    return '基础模型/预训练';
+  }
+  if (lower.includes('instruction') || lower.includes('rlhf') || lower.includes('dpo') ||
+      lower.includes('alignment') || lower.includes('ppo')) {
+    return '指令微调/RLHF';
+  }
+  if (lower.includes('rag') || lower.includes('retrieval') || lower.includes('knowledge')) {
+    return 'RAG/知识增强';
+  }
+  if (lower.includes('multimodal') || lower.includes('vision-language') || lower.includes('image generation')) {
+    return '多模态模型';
+  }
+  if (lower.includes('agent') || lower.includes('tool') || lower.includes('react') ||
+      lower.includes('reasoning') || lower.includes('chain-of-thought')) {
+    return 'AI Agent';
+  }
+
+  // 行为金融子领域
+  if (lower.includes('behavioral') || lower.includes('investor behavior')) {
+    return '投资者行为';
+  }
+  if (lower.includes('market anomaly') || lower.includes('momentum') || lower.includes('value')) {
+    return '市场异象';
+  }
+  if (lower.includes('asset pricing') || lower.includes('factor')) {
+    return '行为资产定价';
+  }
+  if (lower.includes('fintech') || lower.includes('algorithmic')) {
+    return '金融科技';
+  }
+
+  // 巨灾保险子领域
+  if (lower.includes('earthquake')) {
+    return '地震保险';
+  }
+  if (lower.includes('hurricane') || lower.includes('flood')) {
+    return '洪水/飓风保险';
+  }
+  if (lower.includes('climate') || lower.includes('climate risk')) {
+    return '气候风险建模';
+  }
+  if (lower.includes('reinsurance')) {
+    return '再保险';
+  }
+
+  // 农业保险子领域
+  if (lower.includes('crop')) {
+    return '农作物保险';
+  }
+  if (lower.includes('livestock')) {
+    return '畜牧保险';
+  }
+  if (lower.includes('weather index')) {
+    return '天气指数保险';
+  }
+  if (lower.includes('credit') || lower.includes('loan')) {
+    return '农业信贷';
+  }
+
+  // 普惠金融子领域
+  if (lower.includes('digital') || lower.includes('fintech')) {
+    return '数字普惠金融';
+  }
+  if (lower.includes('rural') || lower.includes('agricultural finance')) {
+    return '农村信贷';
+  }
+  if (lower.includes('small business') || lower.includes('sme')) {
+    return '小微金融';
+  }
+  if (lower.includes('exclusion') || lower.includes('financial access')) {
+    return '金融排斥';
+  }
+
+  return '其他';
 }
 
 /**
