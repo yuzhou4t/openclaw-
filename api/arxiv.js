@@ -104,6 +104,48 @@ const DEFAULT_PAPERS = [
     url: 'https://arxiv.org/abs/2603.00005'
   },
   {
+    id: '2603.00011',
+    title: 'Momentum Reversal and Earnings Announcement Effects in Emerging Markets',
+    authors: ['Zhang Wei', 'Liu Yang'],
+    source: 'arXiv:2603.00011',
+    date: '2026-03-21',
+    abstract: 'We investigate momentum reversal patterns and earnings announcement effects in emerging stock markets.',
+    category: '行为金融',
+    subcategory: '市场异象',
+    tags: ['Momentum', 'Reversal', 'Market Anomaly'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00011.pdf',
+    url: 'https://arxiv.org/abs/2603.00011'
+  },
+  {
+    id: '2603.00012',
+    title: 'Behavioral Asset Pricing with Sentiment and Macro Factors',
+    authors: ['Wang Lei', 'Chen Ming'],
+    source: 'arXiv:2603.00012',
+    date: '2026-03-20',
+    abstract: 'We extend behavioral asset pricing models by incorporating investor sentiment and macroeconomic factors.',
+    category: '行为金融',
+    subcategory: '行为资产定价',
+    tags: ['Asset Pricing', 'Sentiment', 'Factor Model'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00012.pdf',
+    url: 'https://arxiv.org/abs/2603.00012'
+  },
+  {
+    id: '2603.00013',
+    title: 'Machine Learning for Algorithmic Trading Strategies',
+    authors: ['Li Hao', 'Zhao Qiang'],
+    source: 'arXiv:2603.00013',
+    date: '2026-03-19',
+    abstract: 'We apply deep learning models to develop quantitative trading strategies with improved risk-adjusted returns.',
+    category: '行为金融',
+    subcategory: '金融科技',
+    tags: ['Algorithmic Trading', 'Quantitative', 'Machine Learning'],
+    citations: 0,
+    pdfUrl: 'https://arxiv.org/pdf/2603.00013.pdf',
+    url: 'https://arxiv.org/abs/2603.00013'
+  },
+  {
     id: '2603.00006',
     title: 'Climate Risk Assessment for Catastrophe Insurance Pricing',
     authors: ['Wang Qiang', 'Liu Fei'],
