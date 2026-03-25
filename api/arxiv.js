@@ -248,6 +248,8 @@ function parseArxivResponse(xmlText) {
     const pdfUrl = getField('id').replace('http://arxiv.org/abs', 'https://arxiv.org/pdf') + '.pdf';
 
     if (title && summary) {
+      const content = title + ' ' + summary;
+      const cat = mapToCategory(content);
       papers.push({
         id: arxivId,
         title: title.replace(/\s+/g, ' '),
@@ -255,9 +257,9 @@ function parseArxivResponse(xmlText) {
         abstract: summary.replace(/\s+/g, ' ').substring(0, 500),
         source: journal,
         date: published.split('T')[0],
-        category: mapToCategory(title + ' ' + summary),
-        subcategory: mapToSubcategory(title + ' ' + summary),
-        tags: extractTags(title + ' ' + summary),
+        category: cat,
+        subcategory: mapToSubcategory(content, cat),
+        tags: extractTags(content),
         citations: 0,
         pdfUrl: pdfUrl,
         arxivId: arxivId,
@@ -304,74 +306,159 @@ function mapToCategory(content) {
 /**
  * 根据内容映射到子领域
  */
-function mapToSubcategory(content) {
+function mapToSubcategory(content, category) {
   const lower = content.toLowerCase();
 
   // ========== 大模型子领域 ==========
-  // 基础模型/预训练
-  if (lower.includes('pre-train') || lower.includes('pretrain') || lower.includes('foundation model') ||
-      lower.includes('llama') || lower.includes('gpt-4') || lower.includes('gpt-3') || lower.includes('gpt2') ||
-      lower.includes('language model') || lower.includes('neural network') || lower.includes('deep learning') ||
-      lower.includes('embedding') || lower.includes('tokeniz') || lower.includes('latent') ||
-      lower.includes('diffusion model') || lower.includes('stable diffusion') || lower.includes('vae')) {
-    return '基础模型/预训练';
-  }
-  // 指令微调/RLHF
-  if (lower.includes('instruction') || lower.includes('rlhf') || lower.includes('dpo') ||
-      lower.includes('alignment') || lower.includes('ppo') || lower.includes('reward') ||
-      lower.includes('preference') || lower.includes('sft') || lower.includes('supervised fine-tun')) {
-    return '指令微调/RLHF';
-  }
-  // RAG/知识增强
-  if (lower.includes('rag') || lower.includes('retrieval') || lower.includes('knowledge') ||
-      lower.includes('augment') || lower.includes('external knowledge') || lower.includes('grounding')) {
-    return 'RAG/知识增强';
-  }
-  // 多模态模型
-  if (lower.includes('multimodal') || lower.includes('vision-language') || lower.includes('image generation') ||
-      lower.includes('text-to-image') || lower.includes('text-to-video') || lower.includes('vqa') ||
-      lower.includes('visual reasoning') || lower.includes('gpt-4v') || lower.includes('clip') ||
-      lower.includes('video generation') || lower.includes('image synthesis') || lower.includes('text-to-3d') ||
-      lower.includes('motion')) {
-    return '多模态模型';
-  }
-  // AI Agent
-  if (lower.includes('agent') || lower.includes('tool use') || lower.includes('tool-learning') ||
-      lower.includes('react') || lower.includes('reasoning') || lower.includes('chain-of-thought') ||
-      lower.includes('autonomous') || lower.includes('planning') || lower.includes('reflection') ||
-      lower.includes('memory') || lower.includes('web agent') || lower.includes('task') ||
-      lower.includes('workflow') || lower.includes('role-play') || lower.includes('simulation')) {
-    return 'AI Agent';
+  if (category === '大模型') {
+    // 基础模型/预训练
+    if (lower.includes('pre-train') || lower.includes('pretrain') || lower.includes('foundation model') ||
+        lower.includes('llama') || lower.includes('gpt-4') || lower.includes('gpt-3') || lower.includes('gpt2') ||
+        lower.includes('language model') || lower.includes('neural network') || lower.includes('deep learning') ||
+        lower.includes('embedding') || lower.includes('tokeniz') || lower.includes('latent') ||
+        lower.includes('diffusion model') || lower.includes('stable diffusion') || lower.includes('vae')) {
+      return '基础模型/预训练';
+    }
+    // 指令微调/RLHF
+    if (lower.includes('instruction') || lower.includes('rlhf') || lower.includes('dpo') ||
+        lower.includes('alignment') || lower.includes('ppo') || lower.includes('reward') ||
+        lower.includes('preference') || lower.includes('sft') || lower.includes('supervised fine-tun')) {
+      return '指令微调/RLHF';
+    }
+    // RAG/知识增强
+    if (lower.includes('rag') || lower.includes('retrieval') || lower.includes('knowledge') ||
+        lower.includes('augment') || lower.includes('external knowledge') || lower.includes('grounding')) {
+      return 'RAG/知识增强';
+    }
+    // 多模态模型
+    if (lower.includes('multimodal') || lower.includes('vision-language') || lower.includes('image generation') ||
+        lower.includes('text-to-image') || lower.includes('text-to-video') || lower.includes('vqa') ||
+        lower.includes('visual reasoning') || lower.includes('gpt-4v') || lower.includes('clip') ||
+        lower.includes('video generation') || lower.includes('image synthesis') || lower.includes('text-to-3d') ||
+        lower.includes('motion')) {
+      return '多模态模型';
+    }
+    // AI Agent
+    if (lower.includes('agent') || lower.includes('tool use') || lower.includes('tool-learning') ||
+        lower.includes('react') || lower.includes('reasoning') || lower.includes('chain-of-thought') ||
+        lower.includes('autonomous') || lower.includes('planning') || lower.includes('reflection') ||
+        lower.includes('memory') || lower.includes('web agent') || lower.includes('task') ||
+        lower.includes('workflow') || lower.includes('role-play') || lower.includes('simulation')) {
+      return 'AI Agent';
+    }
   }
 
   // ========== 行为金融子领域 ==========
-  // 投资者行为
-  if (lower.includes('behavioral') || lower.includes('investor behavior') || lower.includes('investor sentiment') ||
-      lower.includes('household finance') || lower.includes('individual investor') ||
-      lower.includes('disposition effect') || lower.includes('overconfidence') ||
-      lower.includes('herding') || lower.includes('noise trader')) {
-    return '投资者行为';
-  }
-  // 市场异象
-  if (lower.includes('market anomaly') || lower.includes('momentum') || lower.includes('value effect') ||
-      lower.includes('size effect') || lower.includes('reversal') || lower.includes('calendar effect') ||
-      lower.includes('accrual') || lower.includes('intangible') || lower.includes('profit warning')) {
-    return '市场异象';
-  }
-  // 行为资产定价
-  if (lower.includes('asset pricing') || lower.includes('factor model') || lower.includes('risk factor') ||
-      lower.includes('expected return') || lower.includes('cross-section') || lower.includes('beta') ||
-      lower.includes('capital market') || lower.includes('equity premium') || lower.includes('stock return')) {
-    return '行为资产定价';
-  }
-  // 金融科技
-  if (lower.includes('fintech') || lower.includes('algorithmic trading') || lower.includes('quantitative trading') ||
-      lower.includes('machine learning finance') || lower.includes('predictive model') ||
-      lower.includes('high frequency') || lower.includes('market microstructure')) {
-    return '金融科技';
+  if (category === '行为金融') {
+    // 金融科技（优先检查，因为包含较宽泛的关键词）
+    if (lower.includes('fintech') || lower.includes('algorithmic trading') || lower.includes('quantitative trading') ||
+        lower.includes('high frequency') || lower.includes('market microstructure') || lower.includes('cryptocurrency') ||
+        lower.includes('stablecoin') || lower.includes('defi') || lower.includes('blockchain finance')) {
+      return '金融科技';
+    }
+    // 投资者行为
+    if (lower.includes('behavioral') || lower.includes('investor behavior') || lower.includes('investor sentiment') ||
+        lower.includes('household finance') || lower.includes('individual investor') ||
+        lower.includes('disposition effect') || lower.includes('overconfidence') ||
+        lower.includes('herding') || lower.includes('noise trader')) {
+      return '投资者行为';
+    }
+    // 市场异象
+    if (lower.includes('market anomaly') || lower.includes('momentum') || lower.includes('value effect') ||
+        lower.includes('size effect') || lower.includes('reversal') || lower.includes('calendar effect') ||
+        lower.includes('accrual') || lower.includes('intangible') || lower.includes('profit warning')) {
+      return '市场异象';
+    }
+    // 行为资产定价
+    if (lower.includes('asset pricing') || lower.includes('factor model') || lower.includes('risk factor') ||
+        lower.includes('expected return') || lower.includes('cross-section') || lower.includes('beta') ||
+        lower.includes('capital market') || lower.includes('equity premium') || lower.includes('stock return')) {
+      return '行为资产定价';
+    }
+    return '其他'; // 行为金融没有匹配到子领域
   }
 
   // ========== 巨灾保险子领域 ==========
+  if (category === '巨灾保险') {
+    // 地震保险
+    if (lower.includes('earthquake insurance') || lower.includes('seismic') || lower.includes('earthquake risk')) {
+      return '地震保险';
+    }
+    // 洪水/飓风保险
+    if (lower.includes('hurricane') || lower.includes('flood insurance') || lower.includes('windstorm') ||
+        lower.includes('tropical cyclone') || lower.includes('typhoon')) {
+      return '洪水/飓风保险';
+    }
+    // 气候风险建模
+    if (lower.includes('climate change') || lower.includes('climate risk') || lower.includes('extreme event') ||
+        lower.includes('catastrophe model') || lower.includes('climate scenario') || lower.includes('global warming') ||
+        lower.includes('physical risk') || lower.includes('transition risk')) {
+      return '气候风险建模';
+    }
+    // 再保险
+    if (lower.includes('reinsurance') || lower.includes('retrocession') || lower.includes('cat bond') ||
+        lower.includes('insurance-linked') || lower.includes('risk transfer')) {
+      return '再保险';
+    }
+    return '其他';
+  }
+
+  // ========== 农业保险子领域 ==========
+  if (category === '农业保险') {
+    // 农作物保险
+    if (lower.includes('crop insurance') || lower.includes('agricultural insurance') || lower.includes('farming') ||
+        lower.includes('yield insurance') || lower.includes('drought') || lower.includes('frost') ||
+        lower.includes('pest') || lower.includes('harvest')) {
+      return '农作物保险';
+    }
+    // 畜牧保险
+    if (lower.includes('livestock insurance') || lower.includes('animal insurance') || lower.includes('cattle') ||
+        lower.includes('poultry') || lower.includes('aquaculture')) {
+      return '畜牧保险';
+    }
+    // 天气指数保险
+    if (lower.includes('weather index') || lower.includes('index insurance') || lower.includes('rainfall') ||
+        lower.includes('temperature') || lower.includes('ndvi') || lower.includes('vegetation')) {
+      return '天气指数保险';
+    }
+    // 农业信贷
+    if (lower.includes('agricultural credit') || lower.includes('farm credit') || lower.includes('agricultural loan') ||
+        lower.includes('crop loan') || lower.includes('seasonal credit')) {
+      return '农业信贷';
+    }
+    return '其他';
+  }
+
+  // ========== 普惠金融子领域 ==========
+  if (category === '普惠金融') {
+    // 数字普惠金融
+    if (lower.includes('digital finance') || lower.includes('digital inclusion') || lower.includes('fintech') ||
+        lower.includes('mobile payment') || lower.includes('digital banking') || lower.includes('e-finance') ||
+        lower.includes('internet finance') || lower.includes('big data finance')) {
+      return '数字普惠金融';
+    }
+    // 农村信贷
+    if (lower.includes('rural finance') || lower.includes('rural credit') || lower.includes('agricultural finance') ||
+        lower.includes('rural banking') || lower.includes('village bank') || lower.includes('county economy')) {
+      return '农村信贷';
+    }
+    // 小微金融
+    if (lower.includes('microfinance') || lower.includes('small business') || lower.includes('sme finance') ||
+        lower.includes('enterprise credit') || lower.includes('private business') || lower.includes('self-employed')) {
+      return '小微金融';
+    }
+    // 金融排斥
+    if (lower.includes('financial exclusion') || lower.includes('financial inclusion') || lower.includes('unbanked') ||
+        lower.includes('underbanked') || lower.includes('financial access') || lower.includes('financial literacy') ||
+        lower.includes('poverty') || lower.includes('development finance')) {
+      return '金融排斥';
+    }
+    return '其他';
+  }
+
+  // 默认返回"其他"
+  return '其他';
+}
   // 地震保险
   if (lower.includes('earthquake insurance') || lower.includes('seismic') || lower.includes('earthquake risk')) {
     return '地震保险';
