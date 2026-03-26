@@ -75,6 +75,13 @@ async function getMergedPapers(forceRefresh = false) {
   });
 
   mergedPapersCache = Array.from(allPapersMap.values());
+
+  // 过滤掉未来日期的论文
+  const today = new Date().toISOString().split('T')[0];
+  const beforeCount = mergedPapersCache.length;
+  mergedPapersCache = mergedPapersCache.filter(p => p.date && p.date <= today);
+  console.log(`[Papers] Filtered out ${beforeCount - mergedPapersCache.length} future papers`);
+
   lastFetchTime = now;
 
   console.log(`[Papers] Merged ${mergedPapersCache.length} papers (arXiv: ${arxivPapers.length}, OpenAlex: ${openalexPapers.length}, DOAJ: ${doajPapers.length})`);
