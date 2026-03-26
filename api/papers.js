@@ -124,7 +124,7 @@ async function getDOAJPapers() {
 }
 
 module.exports = async (req, res) => {
-  const { category, keyword, page = 1, limit = 20 } = req.query;
+  const { category, keyword, page = 1, limit = 100 } = req.query;
 
   // 解析路径
   let path = req.url.split('?')[0];
