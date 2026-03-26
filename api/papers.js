@@ -49,17 +49,16 @@ async function getMergedPapers(forceRefresh = false) {
     console.log('[Papers] Error fetching papers, using fallback');
   }
 
-  // 如果所有数据源都失败，使用 DEFAULT_PAPERS
-  if (arxivPapers.length === 0 && openalexPapers.length === 0 && doajPapers.length === 0) {
-    console.log('[Papers] All sources failed, using DEFAULT_PAPERS');
-    arxivPapers = arxiv.getDefaultPapers();
-  }
-
-  // 合并去重（按 ID）
+  // 始终使用 DEFAULT_PAPERS 作为基础数据
   const allPapersMap = new Map();
+  arxiv.getDefaultPapers().forEach(p => allPapersMap.set(p.id, p));
 
-  // 先添加 arXiv 论文
-  arxivPapers.forEach(p => allPapersMap.set(p.id, p));
+  // 合并 arXiv 论文（不覆盖已有的默认论文）
+  arxivPapers.forEach(p => {
+    if (!allPapersMap.has(p.id)) {
+      allPapersMap.set(p.id, p);
+    }
+  });
 
   // 添加 OpenAlex 论文（不覆盖已有的）
   openalexPapers.forEach(p => {
