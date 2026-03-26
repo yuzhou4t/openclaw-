@@ -9,20 +9,16 @@ const papersData = [];
 // Subcategories Data
 // ===================================
 const subcategoriesData = {
-  llm: ["基础模型/预训练", "指令微调/RLHF", "RAG/知识增强", "多模态模型", "AI Agent", "其他"],
-  behavior: ["投资者行为", "市场异象", "行为资产定价", "金融科技", "其他"],
-  catastrophe: ["地震保险", "洪水/飓风保险", "气候风险建模", "再保险", "其他"],
-  agriculture: ["农作物保险", "畜牧保险", "天气指数保险", "农业信贷", "其他"],
-  inclusive: ["数字普惠金融", "农村信贷", "小微金融", "金融排斥", "其他"]
+  '大模型': ["基础模型/预训练", "指令微调/RLHF", "RAG/知识增强", "多模态模型", "AI Agent", "其他"],
+  '行为金融': ["投资者行为", "市场异象", "行为资产定价", "金融科技", "其他"],
+  '巨灾保险': ["地震保险", "洪水/飓风保险", "气候风险建模", "再保险", "其他"],
+  '农业保险': ["农作物保险", "畜牧保险", "天气指数保险", "农业信贷", "其他"],
+  '普惠金融': ["数字普惠金融", "农村信贷", "小微金融", "金融排斥", "其他"]
 };
 
 // ===================================
 // State
 // ===================================
-// 从 localStorage 加载收藏
-const savedFavorites = localStorage.getItem("paperFavorites");
-const favoritesArray = savedFavorites ? JSON.parse(savedFavorites) : [];
-
 let state = {
   currentCategory: "all",
   currentSubcategory: null,
@@ -30,7 +26,6 @@ let state = {
   sortBy: "latest",
   currentPage: 1,
   papersPerPage: 10,
-  favorites: new Set(favoritesArray),
   readingList: new Set()
 };
 
@@ -63,6 +58,18 @@ function getCategoryName(category) {
     inclusive: "普惠金融"
   };
   return names[category] || category;
+}
+
+// 获取分类的 CSS 类名（中文分类 -> 英文类名）
+function getCategoryClass(category) {
+  const classMap = {
+    '大模型': 'llm',
+    '行为金融': 'behavior',
+    '巨灾保险': 'catastrophe',
+    '农业保险': 'agriculture',
+    '普惠金融': 'inclusive'
+  };
+  return classMap[category] || category;
 }
 
 function formatDate(dateStr) {
@@ -109,11 +116,11 @@ function renderHotList() {
 
 function updateCounts() {
   document.getElementById("countAll").textContent = papersData.length;
-  document.getElementById("countLLM").textContent = papersData.filter(p => p.category === "llm").length;
-  document.getElementById("countBehavior").textContent = papersData.filter(p => p.category === "behavior").length;
-  document.getElementById("countCatastrophe").textContent = papersData.filter(p => p.category === "catastrophe").length;
-  document.getElementById("countAgriculture").textContent = papersData.filter(p => p.category === "agriculture").length;
-  document.getElementById("countInclusive").textContent = papersData.filter(p => p.category === "inclusive").length;
+  document.getElementById("countLLM").textContent = papersData.filter(p => p.category === "大模型").length;
+  document.getElementById("countBehavior").textContent = papersData.filter(p => p.category === "行为金融").length;
+  document.getElementById("countCatastrophe").textContent = papersData.filter(p => p.category === "巨灾保险").length;
+  document.getElementById("countAgriculture").textContent = papersData.filter(p => p.category === "农业保险").length;
+  document.getElementById("countInclusive").textContent = papersData.filter(p => p.category === "普惠金融").length;
 }
 
 // ===================================
@@ -135,14 +142,6 @@ function renderPapers(papers) {
     <article class="paper-card">
       <div class="paper-header">
         <h2 class="paper-title" onclick="viewPaper(${paper.id})">${paper.title}</h2>
-        <div class="paper-actions">
-          <button class="paper-action-btn ${state.favorites.has(paper.id) ? 'active' : ''}"
-                  onclick="toggleFavorite(${paper.id})" title="收藏">
-            <svg viewBox="0 0 24 24" fill="${state.favorites.has(paper.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </button>
-        </div>
       </div>
       <div class="paper-meta">
         <span class="paper-author">${paper.authors.map((author, i) =>
@@ -150,7 +149,7 @@ function renderPapers(papers) {
         ).join('')}</span>
         <span class="paper-source">${paper.source}</span>
         <span>${formatDate(paper.date)}</span>
-        <span class="paper-tag ${paper.category}">${getCategoryName(paper.category)}</span>
+        <span class="paper-tag ${getCategoryClass(paper.category)}">${getCategoryName(paper.category)}</span>
       </div>
       <p class="paper-abstract">${paper.abstract}</p>
       <div class="paper-footer">
@@ -348,17 +347,6 @@ function goToPage(page) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function toggleFavorite(id) {
-  if (state.favorites.has(id)) {
-    state.favorites.delete(id);
-  } else {
-    state.favorites.add(id);
-  }
-  // 保存到 localStorage
-  localStorage.setItem("paperFavorites", JSON.stringify([...state.favorites]));
-  applyFilters();
-}
-
 function toggleReadingList(id) {
   if (state.readingList.has(id)) {
     state.readingList.delete(id);
@@ -386,7 +374,7 @@ async function viewPaper(id) {
           source: apiPaper.source || 'arXiv',
           date: apiPaper.date,
           abstract: apiPaper.abstract,
-          category: mapCategoryToEnglish(apiPaper.category),
+          category: apiPaper.category,
           subcategory: apiPaper.subcategory,
           tags: apiPaper.tags || [],
           citations: apiPaper.citations || 0,
@@ -417,7 +405,7 @@ async function viewPaper(id) {
   modalBody.innerHTML = `
     <div class="paper-detail-header">
       <div class="paper-detail-category">
-        <span class="paper-detail-tag ${paper.category}">${getCategoryName(paper.category)}</span>
+        <span class="paper-detail-tag ${getCategoryClass(paper.category)}">${getCategoryName(paper.category)}</span>
         <span class="paper-detail-subcategory">${paper.subcategory}</span>
       </div>
       <h1 class="paper-detail-title">${paper.title}</h1>
@@ -450,13 +438,6 @@ async function viewPaper(id) {
             <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
           </svg>
           导出引用
-        </button>
-        <button class="paper-detail-action secondary ${state.favorites.has(paper.id) ? 'active' : ''}"
-                onclick="toggleFavorite(${paper.id}); viewPaper(${paper.id});">
-          <svg viewBox="0 0 24 24" fill="${state.favorites.has(paper.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-          </svg>
-          ${state.favorites.has(paper.id) ? '已收藏' : '收藏'}
         </button>
         <button class="paper-detail-action secondary ${state.readingList.has(paper.id) ? 'active' : ''}"
                 onclick="toggleReadingList(${paper.id}); viewPaper(${paper.id});">
@@ -561,68 +542,6 @@ async function viewPaper(id) {
 
 function closePaperModal() {
   const modal = document.getElementById("paperModal");
-  modal.classList.remove("active");
-  document.body.style.overflow = "";
-}
-
-// 显示收藏夹
-function showFavorites() {
-  const modal = document.getElementById("favoritesModal");
-  const body = document.getElementById("favoritesModalBody");
-  const count = document.getElementById("favoritesCount");
-
-  // 获取收藏的论文
-  const favoritePapers = papersData.filter(p => state.favorites.has(p.id));
-
-  count.textContent = `${favoritePapers.length} 篇论文`;
-
-  if (favoritePapers.length === 0) {
-    body.innerHTML = `
-      <div class="favorites-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <p>暂无收藏论文</p>
-        <span>点击论文卡片上的收藏按钮来添加收藏</span>
-      </div>
-    `;
-  } else {
-    body.innerHTML = favoritePapers.map(paper => `
-      <article class="paper-card">
-        <div class="paper-header">
-          <h2 class="paper-title" onclick="viewPaper(${paper.id})">${paper.title}</h2>
-          <div class="paper-actions">
-            <button class="paper-action-btn active"
-                    onclick="toggleFavorite(${paper.id})" title="收藏">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="paper-meta">
-          <span class="paper-authors">${paper.authors.join(", ")}</span>
-          <span class="paper-source">${paper.source}</span>
-          <span class="paper-date">${paper.date}</span>
-        </div>
-        <p class="paper-abstract">${paper.abstract.substring(0, 120)}...</p>
-        <div class="paper-footer">
-          <div class="paper-tags">
-            ${paper.tags.slice(0, 3).map(tag => `<span class="tag">${tag}</span>`).join("")}
-          </div>
-          <span class="paper-category ${paper.category}">${getCategoryName(paper.category)}</span>
-        </div>
-      </article>
-    `).join("");
-  }
-
-  modal.classList.add("active");
-  document.body.style.overflow = "hidden";
-}
-
-// 关闭收藏夹
-function closeFavoritesModal() {
-  const modal = document.getElementById("favoritesModal");
   modal.classList.remove("active");
   document.body.style.overflow = "";
 }
@@ -1181,7 +1100,7 @@ async function showPushHistory() {
       dayPush.papers.forEach(paper => {
         const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
         const isHot = paper.citations > 5000;
-        const categoryClass = mapCategoryToEnglish(paper.category) || paper.category;
+        const categoryClass = getCategoryClass(paper.category) || paper.category;
 
         html += `
           <div class="paper-card" onclick="viewPaper('${paper.id}')">
@@ -1234,48 +1153,15 @@ document.addEventListener("keydown", (e) => {
 // Daily Push - 每日推送功能
 // ===================================
 
-// 用户订阅的领域（模拟数据，实际从后端获取）
-let userSubscriptions = new Set(["llm", "behavior"]);
-
 // 获取每日推送论文
 function getDailyPushPapers() {
   const pushCount = 5;
   const papers = [...papersData];
 
-  // 策略分配
-  const subscribedPapers = papers.filter(p => userSubscriptions.has(p.category));
-  const popularPapers = [...papers].sort((a, b) => b.citations - a.citations);
-  const recentPapers = [...papers].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  let pushPapers = [];
-
-  // 30% 用户订阅领域的最新论文
-  const subLatest = subscribedPapers
+  // 简单策略：最新5篇论文
+  return papers
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, Math.ceil(pushCount * 0.3));
-  pushPapers.push(...subLatest);
-
-  // 30% 全局热门论文
-  const hotPapers = popularPapers
-    .filter(p => !pushPapers.includes(p))
-    .slice(0, Math.ceil(pushCount * 0.3));
-  pushPapers.push(...hotPapers);
-
-  // 20% 随机推荐（探索新领域）
-  const remaining = papers.filter(p => !pushPapers.includes(p));
-  const randomPapers = remaining
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.ceil(pushCount * 0.2));
-  pushPapers.push(...randomPapers);
-
-  // 20% 经典必读（高引用）
-  const classicPapers = popularPapers
-    .filter(p => !pushPapers.includes(p))
-    .slice(0, pushCount - pushPapers.length);
-  pushPapers.push(...classicPapers);
-
-  // 截取需要的数量
-  return pushPapers.slice(0, pushCount);
+    .slice(0, pushCount);
 }
 
 // 渲染每日推送
@@ -1308,7 +1194,7 @@ async function renderDailyPush() {
     pushGrid.innerHTML = pushPapers.map(paper => {
       const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
       const isHot = paper.citations > 5000;
-      const categoryClass = mapCategoryToEnglish(paper.category) || paper.category;
+      const categoryClass = getCategoryClass(paper.category) || paper.category;
 
       return `
         <div class="push-card" onclick="viewPaper('${paper.id}')">
@@ -1367,7 +1253,7 @@ async function loadPapersFromAPI() {
         source: p.source || 'arXiv',
         date: p.date,
         abstract: p.abstract,
-        category: mapCategoryToEnglish(p.category),
+        category: p.category,
         subcategory: p.subcategory,
         tags: p.tags || [],
         citations: p.citations || 0,
@@ -1380,17 +1266,6 @@ async function loadPapersFromAPI() {
     console.log('API load failed, using local data:', error);
     return null;
   }
-}
-
-function mapCategoryToEnglish(category) {
-  const map = {
-    '大模型': 'llm',
-    '行为金融': 'behavior',
-    '巨灾保险': 'catastrophe',
-    '农业保险': 'agriculture',
-    '普惠金融': 'inclusive'
-  };
-  return map[category] || category;
 }
 
 // ===================================

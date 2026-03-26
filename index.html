@@ -26,12 +26,6 @@
       </div>
     </div>
     <div class="header-right">
-      <button class="header-btn" onclick="showFavorites()" title="我的收藏">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <span>收藏夹</span>
-      </button>
       <span class="logo-text">PaperHub</span>
     </div>
   </header>
@@ -53,31 +47,31 @@
         <div class="nav-section">
           <div class="nav-section-title">领域分类</div>
 
-          <a href="#" class="nav-item" data-category="llm">
+          <a href="#" class="nav-item" data-category="大模型">
             <span class="nav-dot" style="background: var(--tag-llm)"></span>
             <span>大模型</span>
             <span class="nav-count" id="countLLM">0</span>
           </a>
 
-          <a href="#" class="nav-item" data-category="behavior">
+          <a href="#" class="nav-item" data-category="行为金融">
             <span class="nav-dot" style="background: var(--tag-behavior)"></span>
             <span>行为金融</span>
             <span class="nav-count" id="countBehavior">0</span>
           </a>
 
-          <a href="#" class="nav-item" data-category="catastrophe">
+          <a href="#" class="nav-item" data-category="巨灾保险">
             <span class="nav-dot" style="background: var(--tag-catastrophe)"></span>
             <span>巨灾保险</span>
             <span class="nav-count" id="countCatastrophe">0</span>
           </a>
 
-          <a href="#" class="nav-item" data-category="agriculture">
+          <a href="#" class="nav-item" data-category="农业保险">
             <span class="nav-dot" style="background: var(--tag-agri)"></span>
             <span>农业保险</span>
             <span class="nav-count" id="countAgriculture">0</span>
           </a>
 
-          <a href="#" class="nav-item" data-category="inclusive">
+          <a href="#" class="nav-item" data-category="普惠金融">
             <span class="nav-dot" style="background: var(--tag-inclusive)"></span>
             <span>普惠金融</span>
             <span class="nav-count" id="countInclusive">0</span>
@@ -167,29 +161,6 @@
         </div>
       </div>
 
-      <!-- 订阅 -->
-      <div class="widget widget-subscribe">
-        <h3 class="widget-title">订阅更新</h3>
-        <p class="subscribe-desc">订阅感兴趣的领域，获取最新论文推送</p>
-        <div class="subscribe-tags" id="subscribeTags">
-          <label class="subscribe-tag">
-            <input type="checkbox" value="llm"> 大模型
-          </label>
-          <label class="subscribe-tag">
-            <input type="checkbox" value="behavior"> 行为金融
-          </label>
-          <label class="subscribe-tag">
-            <input type="checkbox" value="catastrophe"> 巨灾保险
-          </label>
-          <label class="subscribe-tag">
-            <input type="checkbox" value="agriculture"> 农业保险
-          </label>
-          <label class="subscribe-tag">
-            <input type="checkbox" value="inclusive"> 普惠金融
-          </label>
-        </div>
-        <button class="btn-subscribe">确认订阅</button>
-      </div>
     </aside>
   </div>
 
@@ -199,23 +170,23 @@
       <span>📄</span>
       <span>全部</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="llm">
+    <a href="#" class="mobile-nav-item" data-category="大模型">
       <span>🤖</span>
       <span>大模型</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="behavior">
+    <a href="#" class="mobile-nav-item" data-category="行为金融">
       <span>📊</span>
       <span>行为金融</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="catastrophe">
+    <a href="#" class="mobile-nav-item" data-category="巨灾保险">
       <span>🌪️</span>
       <span>巨灾保险</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="agriculture">
+    <a href="#" class="mobile-nav-item" data-category="农业保险">
       <span>🌾</span>
       <span>农业保险</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="inclusive">
+    <a href="#" class="mobile-nav-item" data-category="普惠金融">
       <span>💰</span>
       <span>普惠金融</span>
     </a>
@@ -325,25 +296,6 @@
             邮件请求
           </button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Favorites Modal -->
-  <div class="paper-modal" id="favoritesModal">
-    <div class="paper-modal-overlay" onclick="closeFavoritesModal()"></div>
-    <div class="paper-modal-content paper-modal-wide">
-      <button class="paper-modal-close" onclick="closeFavoritesModal()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12"></path>
-        </svg>
-      </button>
-      <div class="favorites-modal-header">
-        <h2>我的收藏</h2>
-        <span class="favorites-count" id="favoritesCount">0 篇论文</span>
-      </div>
-      <div class="favorites-modal-body" id="favoritesModalBody">
-        <!-- 收藏的论文将在这里显示 -->
       </div>
     </div>
   </div>
