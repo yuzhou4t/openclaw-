@@ -24,12 +24,36 @@ async function getMergedPapers(forceRefresh = false) {
 
   console.log('[Papers] Fetching papers from all sources...');
 
-  // 并行获取所有数据源
-  const [arxivPapers, openalexPapers, doajPapers] = await Promise.all([
-    arxiv.getCachedPapers().catch(() => []),
-    getOpenAlexPapers().catch(() => []),
-    getDOAJPapers().catch(() => [])
-  ]);
+  // 并行获取所有数据源，带超时控制
+  const timeout = (ms, promise) => {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+    ]).catch(e => {
+      console.log('[Papers] Source timeout or error:', e.message);
+      return [];
+    });
+  };
+
+  let arxivPapers = [];
+  let openalexPapers = [];
+  let doajPapers = [];
+
+  try {
+    [arxivPapers, openalexPapers, doajPapers] = await Promise.all([
+      timeout(8000, arxiv.getCachedPapers().catch(() => [])),
+      timeout(8000, getOpenAlexPapers().catch(() => [])),
+      timeout(8000, getDOAJPapers().catch(() => []))
+    ]);
+  } catch (e) {
+    console.log('[Papers] Error fetching papers, using fallback');
+  }
+
+  // 如果所有数据源都失败，使用 DEFAULT_PAPERS
+  if (arxivPapers.length === 0 && openalexPapers.length === 0 && doajPapers.length === 0) {
+    console.log('[Papers] All sources failed, using DEFAULT_PAPERS');
+    arxivPapers = arxiv.getDefaultPapers();
+  }
 
   // 合并去重（按 ID）
   const allPapersMap = new Map();

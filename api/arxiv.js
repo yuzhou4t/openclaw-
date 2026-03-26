@@ -882,5 +882,6 @@ module.exports = {
   fetchPapersByCategory,
   fetchAllPapers,
   getCachedPapers,
-  filterRecentPapers
+  filterRecentPapers,
+  getDefaultPapers: () => DEFAULT_PAPERS
 };
