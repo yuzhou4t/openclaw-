@@ -830,7 +830,7 @@ async function fetchPapersByCategory(category, maxResults = 10) {
     });
 
     const papers = parseArxivResponse(response.data);
-    return papers.map(p => ({ ...p, category }));
+    return papers; // mapToCategory already set the correct category
   } catch (error) {
     console.error(`arXiv API error for ${category}:`, error.message);
     return [];
