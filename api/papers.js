@@ -1,9 +1,104 @@
 /**
  * 论文 API
- * 从 arXiv 自动获取最新论文
+ * 从 arXiv、OpenAlex、DOAJ 获取最新论文
  */
 
 const arxiv = require('./arxiv');
+const openalex = require('./openalex');
+const doaj = require('./doaj');
+
+// 缓存合并后的论文数据
+let mergedPapersCache = null;
+let lastFetchTime = null;
+const CACHE_DURATION = 60 * 60 * 1000; // 1小时
+
+/**
+ * 获取合并后的论文数据
+ */
+async function getMergedPapers(forceRefresh = false) {
+  const now = Date.now();
+
+  if (!forceRefresh && mergedPapersCache && lastFetchTime && (now - lastFetchTime < CACHE_DURATION)) {
+    return mergedPapersCache;
+  }
+
+  console.log('[Papers] Fetching papers from all sources...');
+
+  // 并行获取所有数据源
+  const [arxivPapers, openalexPapers, doajPapers] = await Promise.all([
+    arxiv.getCachedPapers().catch(() => []),
+    getOpenAlexPapers().catch(() => []),
+    getDOAJPapers().catch(() => [])
+  ]);
+
+  // 合并去重（按 ID）
+  const allPapersMap = new Map();
+
+  // 先添加 arXiv 论文
+  arxivPapers.forEach(p => allPapersMap.set(p.id, p));
+
+  // 添加 OpenAlex 论文（不覆盖已有的）
+  openalexPapers.forEach(p => {
+    if (!allPapersMap.has(p.id)) {
+      allPapersMap.set(p.id, p);
+    }
+  });
+
+  // 添加 DOAJ 论文（不覆盖已有的）
+  doajPapers.forEach(p => {
+    if (!allPapersMap.has(p.id)) {
+      allPapersMap.set(p.id, p);
+    }
+  });
+
+  mergedPapersCache = Array.from(allPapersMap.values());
+  lastFetchTime = now;
+
+  console.log(`[Papers] Merged ${mergedPapersCache.length} papers (arXiv: ${arxivPapers.length}, OpenAlex: ${openalexPapers.length}, DOAJ: ${doajPapers.length})`);
+
+  return mergedPapersCache;
+}
+
+/**
+ * 从 OpenAlex 获取论文
+ */
+async function getOpenAlexPapers() {
+  const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+  const results = [];
+
+  // 每个分类获取几篇
+  const papersPerCategory = 5;
+
+  const promises = categories.map(async (cat) => {
+    const works = await openalex.getPapersByTopic(cat, papersPerCategory);
+    return works.map(w => openalex.transformPaper(w));
+  });
+
+  const resolved = await Promise.all(promises);
+  resolved.forEach(papers => results.push(...papers));
+
+  return results;
+}
+
+/**
+ * 从 DOAJ 获取论文
+ */
+async function getDOAJPapers() {
+  const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+  const results = [];
+
+  const papersPerCategory = 3;
+
+  const promises = categories.map(async (cat) => {
+    const articles = await doaj.getArticlesByCategory(cat, papersPerCategory);
+    return articles.map(a => doaj.transformArticle(a));
+  });
+
+  const resolved = await Promise.all(promises);
+  resolved.forEach(papers => results.push(...papers));
+
+  return results;
+}
 
 module.exports = async (req, res) => {
   const { category, keyword, page = 1, limit = 20 } = req.query;
@@ -17,8 +112,8 @@ module.exports = async (req, res) => {
 
   // /api/papers - 获取论文列表
   if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === 'papers')) {
-    // 从 arXiv 获取论文
-    const allPapers = await arxiv.getCachedPapers();
+    // 获取合并后的论文
+    const allPapers = await getMergedPapers();
     let filtered = [...allPapers];
 
     if (category && category !== 'all') {
@@ -54,7 +149,7 @@ module.exports = async (req, res) => {
 
   // /api/papers/hot - 获取热门论文（按引用排序）
   if (pathParts.includes('hot')) {
-    const allPapers = await arxiv.getCachedPapers();
+    const allPapers = await getMergedPapers();
     const hotPapers = [...allPapers]
       .sort((a, b) => b.citations - a.citations)
       .slice(0, 10);
@@ -67,7 +162,7 @@ module.exports = async (req, res) => {
     const query = decodeURIComponent(pathParts[queryIndex + 1] || '');
     const kw = query.toLowerCase();
 
-    const allPapers = await arxiv.getCachedPapers();
+    const allPapers = await getMergedPapers();
     const results = allPapers.filter(p =>
       p.title.toLowerCase().includes(kw) ||
       p.abstract.toLowerCase().includes(kw) ||
@@ -81,7 +176,7 @@ module.exports = async (req, res) => {
   // /api/papers/:id - 获取单个论文详情
   if (pathParts.length === 2 && !pathParts.includes('hot') && !pathParts.includes('search')) {
     const id = pathParts[1];
-    const allPapers = await arxiv.getCachedPapers();
+    const allPapers = await getMergedPapers();
     const paper = allPapers.find(p => p.id === id);
     if (paper) {
       return res.status(200).json(paper);
