@@ -5,6 +5,14 @@
 
 const arxiv = require('./arxiv');
 
+// 超时包装
+const withTimeout = (ms, fn) => {
+  return Promise.race([
+    fn(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]).catch(() => null);
+};
+
 module.exports = async (req, res) => {
   // 解析路径
   let path = req.url.split('?')[0];
@@ -21,8 +29,11 @@ module.exports = async (req, res) => {
   if (pathParts.includes('daily')) {
     const today = new Date();
 
-    // 从 arXiv 获取论文
-    const allPapers = await arxiv.getCachedPapers();
+    // 从 arXiv 获取论文，带超时控制
+    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
+    if (!allPapers || allPapers.length === 0) {
+      allPapers = arxiv.getDefaultPapers();
+    }
 
     // 筛选最近3天发表的论文
     const recentPapers = arxiv.filterRecentPapers(allPapers, 3);
@@ -47,8 +58,11 @@ module.exports = async (req, res) => {
     const history = [];
     const today = new Date();
 
-    // 从 arXiv 获取论文
-    const allPapers = await arxiv.getCachedPapers();
+    // 从 arXiv 获取论文，带超时控制
+    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
+    if (!allPapers || allPapers.length === 0) {
+      allPapers = arxiv.getDefaultPapers();
+    }
 
     // 生成过去7天的推送记录
     for (let i = 0; i < 7; i++) {
@@ -61,7 +75,7 @@ module.exports = async (req, res) => {
       dayStart.setDate(dayStart.getDate() - 3);
       const dayEnd = new Date(date);
 
-      const dayPapers = allPapers.filter(paper => {
+      const dayPapers = (allPapers || []).filter(paper => {
         const paperDate = new Date(paper.date);
         return paperDate >= dayStart && paperDate <= dayEnd;
       }).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
