@@ -344,7 +344,7 @@ const DEFAULT_PAPERS = [
   },
   {
     id: 'fsufs.2026.1759040',
-    title: 'Innovation bundling and food security nexus among smallholder farmers in Kenya's drylands. A triple hurdle approach',
+    title: "Innovation bundling and food security nexus among smallholder farmers in Kenya's drylands. A triple hurdle approach",
     authors: ['Bwema Ombati Mogaka', 'Raphael Gitau', 'Hillary Bett'],
     source: 'Frontiers in Sustainable Food Systems',
     date: '2026-03-24',
