@@ -142,26 +142,62 @@ function invertAbstract(invertedIndex) {
 function guessCategory(title, abstract) {
   const content = (title + ' ' + abstract).toLowerCase();
 
+  // 大模型优先（最具体的检查）
+  if (content.includes('language model') || content.includes('llm') ||
+      content.includes('gpt') || content.includes('bert') ||
+      content.includes('transformer') || content.includes('multimodal') ||
+      content.includes('foundation model') || content.includes('clip')) {
+    return '大模型';
+  }
+
+  // AI/ML 相关但不是大模型
+  if (content.includes('deep learning') || content.includes('neural network') ||
+      content.includes('machine learning') || content.includes('artificial intelligence')) {
+    // 进一步检查是否是特定领域
+    if (content.includes('insurance') || content.includes('climate risk')) {
+      // 可能是保险+AI的论文，检查是否有更具体的关键词
+      if (content.includes('catastrophe') || content.includes('reinsurance') ||
+          content.includes('hurricane') || content.includes('earthquake')) {
+        return '巨灾保险';
+      }
+      if (content.includes('agricultural') || content.includes('crop')) {
+        return '农业保险';
+      }
+    }
+    if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
+        content.includes('market anomaly') || content.includes('stock market')) {
+      return '行为金融';
+    }
+    if (content.includes('financial inclusion') || content.includes('microfinance')) {
+      return '普惠金融';
+    }
+    return '大模型';
+  }
+
+  // 普惠金融
   if (content.includes('financial inclusion') || content.includes('rural finance') ||
-      content.includes('microfinance') || content.includes('digital finance')) {
+      content.includes('microfinance') || content.includes('digital finance') ||
+      (content.includes('financial') && content.includes('exclusion'))) {
     return '普惠金融';
   }
+
+  // 农业保险
   if (content.includes('agricultural insurance') || content.includes('crop insurance') ||
-      content.includes('weather index') || content.includes('farm')) {
+      content.includes('weather index') || (content.includes('farm') && content.includes('insurance'))) {
     return '农业保险';
   }
-  if (content.includes('catastrophe insurance') || content.includes('climate risk') ||
-      content.includes('reinsurance') || content.includes('hurricane')) {
+
+  // 巨灾保险
+  if (content.includes('catastrophe insurance') || content.includes('reinsurance') ||
+      content.includes('hurricane insurance') || content.includes('earthquake insurance') ||
+      (content.includes('climate risk') && content.includes('insurance'))) {
     return '巨灾保险';
   }
+
+  // 行为金融
   if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
       content.includes('market anomaly') || content.includes('algorithmic trading')) {
     return '行为金融';
-  }
-  if (content.includes('language model') || content.includes('deep learning') ||
-      content.includes('neural network') || content.includes('transformer') ||
-      content.includes('artificial intelligence') || content.includes('machine learning')) {
-    return '大模型';
   }
 
   return '行为金融'; // 默认
