@@ -213,11 +213,16 @@ function renderPagination(totalPapers) {
 }
 
 function renderSubcategories(category) {
+  const subcategorySection = document.getElementById("subcategorySection");
   if (!subcategoriesData[category]) {
     elements.subcategoryList.innerHTML = "";
     elements.subcategoryList.classList.remove("show");
+    if (subcategorySection) subcategorySection.style.display = "none";
     return;
   }
+
+  // 显示子领域区域
+  if (subcategorySection) subcategorySection.style.display = "block";
 
   // 统计每个子领域的论文数量
   const subCounts = {};
