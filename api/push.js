@@ -78,21 +78,26 @@ function guessCategory(title, abstract) {
 
 // 合并论文数据
 async function getAllPapersForPush() {
-  // 获取arXiv论文
+  // 始终包含DEFAULT_PAPERS作为基础
+  const defaultPapers = arxiv.getDefaultPapers();
+  const allMap = new Map();
+  defaultPapers.forEach(p => allMap.set(p.id, p));
+
+  // 获取arXiv论文（只有成功时才合并）
   let arxivPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
-  if (!arxivPapers || arxivPapers.length === 0) {
-    arxivPapers = arxiv.getDefaultPapers();
+  if (arxivPapers && arxivPapers.length > 0) {
+    arxivPapers.forEach(p => {
+      if (!allMap.has(p.id)) allMap.set(p.id, p);
+    });
   }
 
   // 获取OpenAlex论文
   let openalexPapers = await withTimeout(8000, () => fetchOpenAlexPapers(3));
-
-  // 合并去重
-  const allMap = new Map();
-  arxivPapers.forEach(p => allMap.set(p.id, p));
-  openalexPapers.forEach(p => {
-    if (!allMap.has(p.id)) allMap.set(p.id, p);
-  });
+  if (openalexPapers && openalexPapers.length > 0) {
+    openalexPapers.forEach(p => {
+      if (!allMap.has(p.id)) allMap.set(p.id, p);
+    });
+  }
 
   return Array.from(allMap.values());
 }
