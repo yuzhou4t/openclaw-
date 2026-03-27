@@ -495,6 +495,35 @@ const DEFAULT_PAPERS = [
     citations: 0,
     pdfUrl: 'https://abjournals.org/ajesd/wp-content/uploads/sites/4/journal/published_paper/volume-9/issue-1/AJESD_W5ETSSH0.pdf',
     url: 'https://doi.org/10.52589/ajesd-w5etssh0'
+  },
+  // 2026-03-27 新增论文
+  {
+    id: 'W7140154640',
+    title: 'Modèles stochastiques et innovations en assurance et en finance',
+    authors: ['Pascal Ljubotina', 'Antonin R. M. P. Bos', 'Nicole R. E. H. K'],
+    source: 'SPIRE - Sciences Po Institutional Repository',
+    date: '2026-03-27',
+    abstract: 'Stochastic models and innovations in insurance and finance.',
+    category: '行为金融',
+    subcategory: '其他',
+    tags: [],
+    citations: 0,
+    pdfUrl: null,
+    url: 'https://openalex.org/works/W7140154640'
+  },
+  {
+    id: 'W7135512247',
+    title: 'Modèles stochastiques et innovations en assurance et finance',
+    authors: ['Antonin R. M. P. Bos', 'Pascal Ljubotina'],
+    source: 'SPIRE - Sciences Po Institutional Repository',
+    date: '2026-03-27',
+    abstract: 'Stochastic models and innovations in insurance and finance.',
+    category: '行为金融',
+    subcategory: '其他',
+    tags: [],
+    citations: 0,
+    pdfUrl: null,
+    url: 'https://openalex.org/works/W7135512247'
   }
 ];
 
