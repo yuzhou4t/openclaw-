@@ -76,11 +76,14 @@ async function getMergedPapers(forceRefresh = false) {
 
   mergedPapersCache = Array.from(allPapersMap.values());
 
-  // 过滤掉未来日期的论文
-  const today = new Date().toISOString().split('T')[0];
+  // 过滤掉未来日期的论文（使用UTC日期避免时区问题）
+  const today = new Date();
+  const todayStr = today.getUTCFullYear() + '-' +
+    String(today.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getUTCDate()).padStart(2, '0');
   const beforeCount = mergedPapersCache.length;
-  mergedPapersCache = mergedPapersCache.filter(p => p.date && p.date <= today);
-  console.log(`[Papers] Filtered out ${beforeCount - mergedPapersCache.length} future papers`);
+  mergedPapersCache = mergedPapersCache.filter(p => p.date && p.date <= todayStr);
+  console.log(`[Papers] Filtered out ${beforeCount - mergedPapersCache.length} future papers (today: ${todayStr})`);
 
   lastFetchTime = now;
 
