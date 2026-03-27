@@ -14,6 +14,10 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1小时
 
 /**
  * 获取合并后的论文数据
+ * 按分类使用不同来源：
+ * - 行为金融 -> OpenAlex
+ * - 农业保险/普惠金融 -> DOAJ
+ * - 巨灾保险/大模型 -> arXiv
  */
 async function getMergedPapers(forceRefresh = false) {
   const now = Date.now();
@@ -22,53 +26,59 @@ async function getMergedPapers(forceRefresh = false) {
     return mergedPapersCache;
   }
 
-  console.log('[Papers] Fetching papers from all sources...');
+  console.log('[Papers] Fetching papers from categorized sources...');
 
-  // 并行获取所有数据源，带超时控制
+  // 超时控制
   const timeout = (ms, promise) => {
     return Promise.race([
       promise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
     ]).catch(e => {
-      console.log('[Papers] Source timeout or error:', e.message);
+      console.log('[Papers] Timeout/error:', e.message);
       return [];
     });
   };
+
+  // 按分类获取论文
+  const arxivCategories = ['大模型', '巨灾保险'];
+  const openalexCategories = ['行为金融'];
+  const doajCategories = ['农业保险', '普惠金融'];
 
   let arxivPapers = [];
   let openalexPapers = [];
   let doajPapers = [];
 
   try {
+    // 并行获取所有来源
     [arxivPapers, openalexPapers, doajPapers] = await Promise.all([
-      timeout(8000, arxiv.getCachedPapers().catch(() => [])),
-      timeout(8000, getOpenAlexPapers().catch(() => [])),
-      timeout(8000, getDOAJPapers().catch(() => []))
+      timeout(8000, fetchArxivByCategories(arxivCategories)),
+      timeout(8000, fetchOpenAlexByCategories(openalexCategories)),
+      timeout(8000, fetchDOAJByCategories(doajCategories))
     ]);
   } catch (e) {
-    console.log('[Papers] Error fetching papers, using fallback');
+    console.log('[Papers] Error:', e.message);
   }
 
   // 始终使用 DEFAULT_PAPERS 作为基础数据
   const allPapersMap = new Map();
   arxiv.getDefaultPapers().forEach(p => allPapersMap.set(p.id, p));
 
-  // 合并 arXiv 论文（不覆盖已有的默认论文）
-  arxivPapers.forEach(p => {
+  // 合并 arXiv 论文
+  (arxivPapers || []).forEach(p => {
     if (!allPapersMap.has(p.id)) {
       allPapersMap.set(p.id, p);
     }
   });
 
-  // 添加 OpenAlex 论文（不覆盖已有的）
-  openalexPapers.forEach(p => {
+  // 合并 OpenAlex 论文
+  (openalexPapers || []).forEach(p => {
     if (!allPapersMap.has(p.id)) {
       allPapersMap.set(p.id, p);
     }
   });
 
-  // 添加 DOAJ 论文（不覆盖已有的）
-  doajPapers.forEach(p => {
+  // 合并 DOAJ 论文
+  (doajPapers || []).forEach(p => {
     if (!allPapersMap.has(p.id)) {
       allPapersMap.set(p.id, p);
     }
@@ -76,62 +86,52 @@ async function getMergedPapers(forceRefresh = false) {
 
   mergedPapersCache = Array.from(allPapersMap.values());
 
-  // 过滤掉未来日期的论文（使用UTC日期避免时区问题）
+  // 过滤掉未来日期的论文
   const today = new Date();
   const todayStr = today.getUTCFullYear() + '-' +
     String(today.getUTCMonth() + 1).padStart(2, '0') + '-' +
     String(today.getUTCDate()).padStart(2, '0');
-  const beforeCount = mergedPapersCache.length;
   mergedPapersCache = mergedPapersCache.filter(p => p.date && p.date <= todayStr);
-  console.log(`[Papers] Filtered out ${beforeCount - mergedPapersCache.length} future papers (today: ${todayStr})`);
 
   lastFetchTime = now;
-
-  console.log(`[Papers] Merged ${mergedPapersCache.length} papers (arXiv: ${arxivPapers.length}, OpenAlex: ${openalexPapers.length}, DOAJ: ${doajPapers.length})`);
+  console.log(`[Papers] Merged ${mergedPapersCache.length} papers`);
 
   return mergedPapersCache;
 }
 
-/**
- * 从 OpenAlex 获取论文
- */
-async function getOpenAlexPapers() {
-  const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+// 按分类获取arXiv论文
+async function fetchArxivByCategories(categories) {
   const results = [];
-
-  // 每个分类获取几篇
   const papersPerCategory = 5;
-
-  const promises = categories.map(async (cat) => {
-    const works = await openalex.getPapersByTopic(cat, papersPerCategory);
-    return works.map(w => openalex.transformPaper(w));
-  });
-
-  const resolved = await Promise.all(promises);
-  resolved.forEach(papers => results.push(...papers));
-
+  for (const cat of categories) {
+    const papers = await arxiv.fetchPapersByCategory(cat, papersPerCategory);
+    results.push(...papers);
+  }
   return results;
 }
 
-/**
- * 从 DOAJ 获取论文
- */
-async function getDOAJPapers() {
-  const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+// 按分类获取OpenAlex论文
+async function fetchOpenAlexByCategories(categories) {
   const results = [];
-
-  const papersPerCategory = 3;
-
-  const promises = categories.map(async (cat) => {
-    const articles = await doaj.getArticlesByCategory(cat, papersPerCategory);
-    return articles.map(a => doaj.transformArticle(a));
-  });
-
-  const resolved = await Promise.all(promises);
-  resolved.forEach(papers => results.push(...papers));
-
+  const papersPerCategory = 5;
+  for (const cat of categories) {
+    const papers = await openalex.getPapersByTopic(cat, papersPerCategory);
+    results.push(...papers.map(w => openalex.transformPaper(w)));
+  }
   return results;
 }
+
+// 按分类获取DOAJ论文
+async function fetchDOAJByCategories(categories) {
+  const results = [];
+  const papersPerCategory = 3;
+  for (const cat of categories) {
+    const papers = await doaj.getPapersByTopic(cat, papersPerCategory);
+    results.push(...papers);
+  }
+  return results;
+}
+
 
 module.exports = async (req, res) => {
   const { category, keyword, page = 1, limit = 100 } = req.query;
