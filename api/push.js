@@ -83,11 +83,18 @@ async function getAllPapersForPush() {
   const allMap = new Map();
   defaultPapers.forEach(p => allMap.set(p.id, p));
 
-  // 获取arXiv论文（只有成功时才合并）
+  // 获取arXiv论文（只有成功时才合并），每类最多2篇
   let arxivPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
   if (arxivPapers && arxivPapers.length > 0) {
+    const categoryCount = {};
     arxivPapers.forEach(p => {
-      if (!allMap.has(p.id)) allMap.set(p.id, p);
+      if (!allMap.has(p.id)) {
+        const cat = p.category || '其他';
+        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+        if (categoryCount[cat] <= 2) {
+          allMap.set(p.id, p);
+        }
+      }
     });
   }
 
