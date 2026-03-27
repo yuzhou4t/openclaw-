@@ -3,6 +3,7 @@
     { "source": "/api/papers", "destination": "/api/papers.js" },
     { "source": "/api/papers/hot", "destination": "/api/papers.js" },
     { "source": "/api/papers/search/:query", "destination": "/api/papers.js" },
+    { "source": "/api/papers/:id", "destination": "/api/papers.js" },
     { "source": "/api/push/daily", "destination": "/api/push.js" },
     { "source": "/api/push/history", "destination": "/api/push.js" },
     { "source": "/api/tags", "destination": "/api/tags.js" },
