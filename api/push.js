@@ -4,7 +4,7 @@
  * 每周二、周五、周日上午8点推送5篇不同分类的论文
  */
 
-const arxiv = require('./arxiv');
+const papers = require('./papers');
 
 // 超时包装
 const withTimeout = (ms, fn) => {
@@ -45,10 +45,10 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 从 arXiv 获取论文，带超时控制
-    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
+    // 从合并数据源获取论文
+    let allPapers = await withTimeout(8000, () => papers.getMergedPapers());
     if (!allPapers || allPapers.length === 0) {
-      allPapers = arxiv.getDefaultPapers();
+      allPapers = require('./arxiv').getDefaultPapers();
     }
 
     // 筛选最近3天发表的论文
@@ -96,10 +96,10 @@ module.exports = async (req, res) => {
     const history = [];
     const today = new Date();
 
-    // 从 arXiv 获取论文，带超时控制
-    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
+    // 从合并数据源获取论文
+    let allPapers = await withTimeout(8000, () => papers.getMergedPapers());
     if (!allPapers || allPapers.length === 0) {
-      allPapers = arxiv.getDefaultPapers();
+      allPapers = require('./arxiv').getDefaultPapers();
     }
 
     // 生成过去7天的推送记录
