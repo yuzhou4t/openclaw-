@@ -6,6 +6,10 @@
 
 const arxiv = require('./arxiv');
 
+// OpenAlex API 相关
+const axios = require('axios');
+const OPENALEX_API = 'https://api.openalex.org/works';
+
 // 超时包装
 const withTimeout = (ms, fn) => {
   return Promise.race([
@@ -17,6 +21,81 @@ const withTimeout = (ms, fn) => {
 // 推送日：周二(2)、周五(5)、周日(0)
 const PUSH_DAYS = [0, 2, 5];
 const PAPER_COUNT = 5; // 推送5篇不同分类的论文
+
+// 获取OpenAlex论文（带分类）
+async function fetchOpenAlexPapers(days = 3) {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - days);
+  const fromDate = startDate.toISOString().split('T')[0];
+
+  const queries = [
+    'catastrophe insurance OR climate risk insurance OR reinsurance',
+    'agricultural insurance OR crop insurance',
+    'financial inclusion OR rural finance OR microfinance'
+  ];
+
+  try {
+    const results = [];
+    for (const query of queries) {
+      const url = `${OPENALEX_API}?search=${encodeURIComponent(query)}&filter=publication_date:>${fromDate}&per-page=5&sort=publication_date:desc`;
+      const response = await axios.get(url, { timeout: 8000 });
+      if (response.data && response.data.results) {
+        results.push(...response.data.results.map(w => ({
+          id: String(w.id).split('/').pop(),
+          title: w.title || 'Untitled',
+          authors: (w.authorships || []).map(a => a.author.display_name).slice(0, 5),
+          source: w.source?.display_name || 'OpenAlex',
+          date: w.publication_date || '',
+          abstract: w.abstract || '',
+          category: guessCategory(w.title || '', w.abstract || ''),
+          subcategory: '其他',
+          tags: (w.topics || []).slice(0, 3).map(t => t.display_name),
+          citations: w.citation_count || 0,
+          pdfUrl: null,
+          url: w.doi || `https://openalex.org/${w.id}`
+        })));
+      }
+    }
+    return results;
+  } catch (e) {
+    console.log('[OpenAlex] Error:', e.message);
+    return [];
+  }
+}
+
+// 根据标题/摘要猜测分类
+function guessCategory(title, abstract) {
+  const content = (title + ' ' + abstract).toLowerCase();
+  if (content.includes('insurance') || content.includes('reinsurance') || content.includes('catastrophe')) {
+    return content.includes('agricultural') || content.includes('crop') ? '农业保险' : '巨灾保险';
+  }
+  if (content.includes('financial inclusion') || content.includes('rural finance') || content.includes('microfinance')) {
+    return '普惠金融';
+  }
+  return '巨灾保险';
+}
+
+// 合并论文数据
+async function getAllPapersForPush() {
+  // 获取arXiv论文
+  let arxivPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
+  if (!arxivPapers || arxivPapers.length === 0) {
+    arxivPapers = arxiv.getDefaultPapers();
+  }
+
+  // 获取OpenAlex论文
+  let openalexPapers = await withTimeout(8000, () => fetchOpenAlexPapers(3));
+
+  // 合并去重
+  const allMap = new Map();
+  arxivPapers.forEach(p => allMap.set(p.id, p));
+  openalexPapers.forEach(p => {
+    if (!allMap.has(p.id)) allMap.set(p.id, p);
+  });
+
+  return Array.from(allMap.values());
+}
 
 module.exports = async (req, res) => {
   // 解析路径
@@ -45,14 +124,16 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 从 arXiv 获取论文，带超时控制
-    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
-    if (!allPapers || allPapers.length === 0) {
-      allPapers = arxiv.getDefaultPapers();
-    }
+    // 获取所有来源的论文
+    const allPapers = await getAllPapersForPush();
 
     // 筛选最近3天发表的论文
-    const recentPapers = arxiv.filterRecentPapers(allPapers, 3);
+    const todayStr = today.toISOString().split('T')[0];
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+
+    const recentPapers = allPapers.filter(p => p.date && p.date >= threeDaysAgoStr && p.date <= todayStr);
 
     // 按日期排序，最新的在前
     recentPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -85,7 +166,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       papers: selectedPapers,
-      date: today.toISOString().split('T')[0],
+      date: todayStr,
       hasNewPapers: hasNewPapers,
       message: hasNewPapers ? '' : '暂无'
     });
@@ -96,11 +177,8 @@ module.exports = async (req, res) => {
     const history = [];
     const today = new Date();
 
-    // 从 arXiv 获取论文，带超时控制
-    let allPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
-    if (!allPapers || allPapers.length === 0) {
-      allPapers = arxiv.getDefaultPapers();
-    }
+    // 获取所有来源的论文
+    const allPapers = await getAllPapersForPush();
 
     // 生成过去7天的推送记录
     for (let i = 0; i < 7; i++) {
@@ -124,6 +202,8 @@ module.exports = async (req, res) => {
       const dayStart = new Date(date);
       dayStart.setDate(dayStart.getDate() - 3);
       const dayEnd = new Date(date);
+      const dayStartStr = dayStart.toISOString().split('T')[0];
+      const dayEndStr = dayEnd.toISOString().split('T')[0];
 
       const recentPapers = (allPapers || []).filter(paper => {
         const paperDate = new Date(paper.date);
