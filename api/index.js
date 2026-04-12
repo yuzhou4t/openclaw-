@@ -24,7 +24,12 @@ module.exports = (req, res) => {
     'tags': require('./tags'),
     'categories': require('./categories'),
     'auth': require('./auth'),
-    'user': require('./user')
+    'user': require('./user'),
+    'ssrn': require('./ssrn'),
+    'nber': require('./nber'),
+    'afajof': require('./afajof'),
+    'cnki': require('./cnki'),
+    'scholars': require('./scholars')
   };
 
   if (routes[endpoint]) {
