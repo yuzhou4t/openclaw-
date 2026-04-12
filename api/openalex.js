@@ -77,7 +77,9 @@ async function getPapersByTopic(category, maxResults = 10) {
       timeout: 15000
     });
 
-    return response.data.results || [];
+    const results = response.data.results || [];
+    // 转换论文格式并使用请求的分类
+    return results.map(work => transformPaper(work, category));
   } catch (error) {
     console.error('OpenAlex API error for category', category, ':', error.message);
     return [];
@@ -87,7 +89,7 @@ async function getPapersByTopic(category, maxResults = 10) {
 /**
  * 转换 OpenAlex 论文格式为统一格式
  */
-function transformPaper(work) {
+function transformPaper(work, requestedCategory = null) {
   const title = work.title || 'Untitled';
   const abstractText = work.abstract_inverted_index ?
     invertAbstract(work.abstract_inverted_index) : '';
@@ -109,6 +111,9 @@ function transformPaper(work) {
   const url = work.doi || `https://openalex.org/works/${id}`;
   const pdfUrl = work.best_oa_location?.pdf_url || null;
 
+  // 使用请求的分类（如果提供），否则猜测
+  const category = requestedCategory || guessCategory(title, abstractText);
+
   return {
     id: id,
     title: title,
@@ -116,8 +121,8 @@ function transformPaper(work) {
     source: journal,
     date: publicationDate,
     abstract: abstractText.substring(0, 500),
-    category: guessCategory(title, abstractText),
-    subcategory: guessSubcategory(title, abstractText, guessCategory(title, abstractText)),
+    category: category,
+    subcategory: guessSubcategory(title, abstractText, category),
     tags: extractTags(title, abstractText),
     citations: citations,
     pdfUrl: pdfUrl,
@@ -143,65 +148,50 @@ function invertAbstract(invertedIndex) {
 function guessCategory(title, abstract) {
   const content = (title + ' ' + abstract).toLowerCase();
 
-  // 大模型优先（最具体的检查）
-  if (content.includes('language model') || content.includes('llm') ||
-      content.includes('gpt') || content.includes('bert') ||
-      content.includes('transformer') || content.includes('multimodal') ||
-      content.includes('foundation model') || content.includes('clip')) {
-    return '大模型';
+  // 计量经济学
+  if (content.includes('econometric') || content.includes('time series') ||
+      content.includes('panel data') || content.includes('causal inference') ||
+      content.includes('regression model') || content.includes('var ')) {
+    return '计量经济学';
   }
 
-  // AI/ML 相关但不是大模型
-  if (content.includes('deep learning') || content.includes('neural network') ||
-      content.includes('machine learning') || content.includes('artificial intelligence')) {
-    // 进一步检查是否是特定领域
-    if (content.includes('insurance') || content.includes('climate risk')) {
-      // 可能是保险+AI的论文，检查是否有更具体的关键词
-      if (content.includes('catastrophe') || content.includes('reinsurance') ||
-          content.includes('hurricane') || content.includes('earthquake')) {
-        return '巨灾保险';
-      }
-      if (content.includes('agricultural') || content.includes('crop')) {
-        return '农业保险';
-      }
-    }
-    if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
-        content.includes('market anomaly') || content.includes('stock market')) {
-      return '行为金融';
-    }
-    if (content.includes('financial inclusion') || content.includes('microfinance')) {
-      return '普惠金融';
-    }
-    return '大模型';
-  }
-
-  // 普惠金融
-  if (content.includes('financial inclusion') || content.includes('rural finance') ||
-      content.includes('microfinance') || content.includes('digital finance') ||
-      (content.includes('financial') && content.includes('exclusion'))) {
-    return '普惠金融';
-  }
-
-  // 农业保险
-  if (content.includes('agricultural insurance') || content.includes('crop insurance') ||
-      content.includes('weather index') || (content.includes('farm') && content.includes('insurance'))) {
-    return '农业保险';
-  }
-
-  // 巨灾保险
-  if (content.includes('catastrophe insurance') || content.includes('reinsurance') ||
-      content.includes('hurricane insurance') || content.includes('earthquake insurance') ||
-      (content.includes('climate risk') && content.includes('insurance'))) {
-    return '巨灾保险';
+  // 金融机器学习
+  if (content.includes('quantitative trading') || content.includes('algorithmic trading') ||
+      content.includes('machine learning finance') || content.includes('deep learning finance') ||
+      (content.includes('machine learning') && (content.includes('finance') || content.includes('stock') || content.includes('portfolio')))) {
+    return '金融机器学习';
   }
 
   // 行为金融
   if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
-      content.includes('market anomaly') || content.includes('algorithmic trading')) {
+      content.includes('market anomaly') || content.includes('investor behavior') ||
+      content.includes('overconfidence') || content.includes('loss aversion')) {
     return '行为金融';
   }
 
-  return '行为金融'; // 默认
+  // 巨灾保险
+  if (content.includes('catastrophe insurance') || content.includes('reinsurance') ||
+      content.includes('hurricane') || content.includes('earthquake insurance') ||
+      content.includes('climate risk') || content.includes('disaster risk')) {
+    return '巨灾保险';
+  }
+
+  // 农业保险
+  if (content.includes('agricultural insurance') || content.includes('crop insurance') ||
+      content.includes('weather index') || content.includes('farm insurance') ||
+      content.includes('agricultural risk')) {
+    return '农业保险';
+  }
+
+  // 普惠金融
+  if (content.includes('financial inclusion') || content.includes('microfinance') ||
+      content.includes('rural finance') || content.includes('digital finance') ||
+      content.includes('inclusive finance')) {
+    return '普惠金融';
+  }
+
+  // 默认返回计量经济学
+  return '计量经济学';
 }
 
 /**
@@ -210,12 +200,20 @@ function guessCategory(title, abstract) {
 function guessSubcategory(title, abstract, category) {
   const content = (title + ' ' + abstract).toLowerCase();
 
-  if (category === '大模型') {
-    if (content.includes('agent') || content.includes('tool')) return 'AI Agent';
-    if (content.includes('rag') || content.includes('retrieval')) return 'RAG/知识增强';
-    if (content.includes('multimodal') || content.includes('vision')) return '多模态模型';
-    if (content.includes('rlhf') || content.includes('alignment') || content.includes('dpo')) return '指令微调/RLHF';
-    return '基础模型/预训练';
+  if (category === '计量经济学') {
+    if (content.includes('time series') || content.includes('garch')) return '时间序列';
+    if (content.includes('panel data') || content.includes('fixed effect')) return '面板数据';
+    if (content.includes('causal') || content.includes('instrument')) return '因果推断';
+    if (content.includes('var') || content.includes('vector')) return 'VAR/GARCH';
+    return '其他';
+  }
+
+  if (category === '金融机器学习') {
+    if (content.includes('trading') || content.includes('algorithmic')) return '量化交易';
+    if (content.includes('risk') || content.includes('prediction')) return '风险预测';
+    if (content.includes('asset pricing') || content.includes('portfolio')) return '资产定价';
+    if (content.includes('deep learning') || content.includes('neural')) return '深度学习';
+    return '其他';
   }
 
   if (category === '行为金融') {

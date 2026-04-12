@@ -22,7 +22,9 @@
       "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/cron\")",
       "Bash(curl -sk \"https://api.openalex.org/suggest?queries=econometrics,machine+learning+finance,behavioral+finance\")",
       "Bash(python3 -c ':*)",
-      "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=5\")"
+      "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=5\")",
+      "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=3\")",
+      "Bash(node -c /Users/yuzhou4tc/Public/openclaw检索论文/api/openalex.js)"
     ],
     "additionalDirectories": [
       "/Users/yuzhou4tc/爱网站/data",
