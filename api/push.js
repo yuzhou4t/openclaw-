@@ -4,8 +4,8 @@
  * 每周二、周五推送
  */
 
-const { selectTopPapers } = require('./scorer');
-const sources = require('./sources');
+const { selectTopPapers } = require('../lib/scorer');
+const sources = require('../lib/sources');
 
 // 超时包装
 const withTimeout = (ms, fn) => {
