@@ -19,7 +19,10 @@
       "Bash(curl -sk \"https://paperhub-liart.vercel.app/papers.js\")",
       "Bash(curl -sk \"https://paperhub-liart.vercel.app/\")",
       "Bash(curl -sk -o /dev/null -w \"%{http_code}\" \"https://paperhub-liart.vercel.app\")",
-      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/cron\")"
+      "Bash(curl -sk \"https://paperhub-liart.vercel.app/api/cron\")",
+      "Bash(curl -sk \"https://api.openalex.org/suggest?queries=econometrics,machine+learning+finance,behavioral+finance\")",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=5\")"
     ],
     "additionalDirectories": [
       "/Users/yuzhou4tc/爱网站/data",

@@ -8,13 +8,14 @@ const axios = require('axios');
 
 const OPENALEX_API = 'https://api.openalex.org';
 
-// 五大领域的 OpenAlex 主题过滤
+// 六大领域的 OpenAlex 主题过滤
 const TOPIC_FILTERS = {
-  '大模型': 'machine learning,deep learning,natural language processing,artificial intelligence',
-  '行为金融': 'behavioral finance,investor sentiment,market anomaly,stock market',
-  '巨灾保险': 'catastrophe insurance,risk management,climate risk,insurance',
-  '农业保险': 'agricultural insurance,crop insurance,weather index,rural finance',
-  '普惠金融': 'financial inclusion,microfinance,rural finance,digital finance'
+  '计量经济学': 'econometrics,time series analysis,panel data,causal inference,regression model',
+  '金融机器学习': 'machine learning finance,quantitative trading,algorithmic trading,deep learning finance',
+  '行为金融': 'behavioral finance,investor sentiment,market anomaly,stock market,investor behavior',
+  '巨灾保险': 'catastrophe insurance,risk management,climate risk,reinsurance,earthquake insurance',
+  '农业保险': 'agricultural insurance,crop insurance,weather index,rural finance,farm insurance',
+  '普惠金融': 'financial inclusion,microfinance,rural finance,digital finance,inclusive finance'
 };
 
 // 金融/保险相关的 journal ISSN 列表（部分）
