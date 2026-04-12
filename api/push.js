@@ -1,14 +1,10 @@
 /**
  * 每日推送 API
- * 从 arXiv 自动获取最新论文
- * 每周二、周五、周日上午8点推送5篇不同分类的论文
+ * 从 SSRN、NBER、AFAJOF、CNKI 等获取精选论文
+ * 每周二、周五推送
  */
 
-const arxiv = require('./arxiv');
-
-// OpenAlex API 相关
-const axios = require('axios');
-const OPENALEX_API = 'https://api.openalex.org/works';
+const { selectTopPapers } = require('./scorer');
 
 // 超时包装
 const withTimeout = (ms, fn) => {
@@ -18,95 +14,109 @@ const withTimeout = (ms, fn) => {
   ]).catch(() => null);
 };
 
-// 推送日：周二(2)、周五(5)、周日(0)
-const PUSH_DAYS = [0, 2, 5];
-const PAPER_COUNT = 5; // 推送5篇不同分类的论文
+// 推送日：周二(2)、周五(5)
+const PUSH_DAYS = [2, 5];
 
-// 获取OpenAlex论文（带分类）
-async function fetchOpenAlexPapers(days = 3) {
-  const now = new Date();
-  const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - days);
-  const fromDate = startDate.toISOString().split('T')[0];
+// 六大分类
+const CATEGORIES = ['计量经济学', '金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
 
-  const queries = [
-    'catastrophe insurance OR climate risk insurance OR reinsurance',
-    'agricultural insurance OR crop insurance',
-    'financial inclusion OR rural finance OR microfinance'
-  ];
+// 分类来源映射
+const CATEGORY_SOURCE_MAP = {
+  '计量经济学': ['计量经济学', '计量经济学'],
+  '金融机器学习': ['金融机器学习', '金融机器学习'],
+  '行为金融': ['行为金融', '行为金融'],
+  '巨灾保险': ['巨灾保险', '巨灾保险'],
+  '农业保险': ['农业保险', '农业保险'],
+  '普惠金融': ['普惠金融', '普惠金融']
+};
 
-  try {
-    const results = [];
-    for (const query of queries) {
-      const url = `${OPENALEX_API}?search=${encodeURIComponent(query)}&filter=publication_date:>${fromDate}&per-page=5&sort=publication_date:desc`;
-      const response = await axios.get(url, { timeout: 8000 });
-      if (response.data && response.data.results) {
-        results.push(...response.data.results.map(w => ({
-          id: String(w.id).split('/').pop(),
-          title: w.title || 'Untitled',
-          authors: (w.authorships || []).map(a => a.author.display_name).slice(0, 5),
-          source: w.source?.display_name || 'OpenAlex',
-          date: w.publication_date || '',
-          abstract: w.abstract || '',
-          category: guessCategory(w.title || '', w.abstract || ''),
-          subcategory: '其他',
-          tags: (w.topics || []).slice(0, 3).map(t => t.display_name),
-          citations: w.citation_count || 0,
-          pdfUrl: null,
-          url: w.doi || `https://openalex.org/${w.id}`
-        })));
-      }
-    }
-    return results;
-  } catch (e) {
-    console.log('[OpenAlex] Error:', e.message);
-    return [];
-  }
-}
-
-// 根据标题/摘要猜测分类
-function guessCategory(title, abstract) {
-  const content = (title + ' ' + abstract).toLowerCase();
-  if (content.includes('insurance') || content.includes('reinsurance') || content.includes('catastrophe')) {
-    return content.includes('agricultural') || content.includes('crop') ? '农业保险' : '巨灾保险';
-  }
-  if (content.includes('financial inclusion') || content.includes('rural finance') || content.includes('microfinance')) {
-    return '普惠金融';
-  }
-  return '巨灾保险';
+// 模拟从各来源获取论文（实际需要调用对应API）
+async function fetchFromSource(source, category, limit) {
+  // 这里模拟返回空数组，实际部署时需要接入真实数据源
+  // SSRN/NBER/AFAJOF/CNKI 的适配器已创建，但服务器端无法直接调用浏览器端API
+  // 需要将这些适配器改为服务端抓取逻辑
+  return [];
 }
 
 // 合并论文数据
 async function getAllPapersForPush() {
-  // 始终包含DEFAULT_PAPERS作为基础
-  const defaultPapers = arxiv.getDefaultPapers();
-  const allMap = new Map();
-  defaultPapers.forEach(p => allMap.set(p.id, p));
+  let allPapers = [];
 
-  // 获取arXiv论文（只有成功时才合并），每类最多2篇
-  let arxivPapers = await withTimeout(8000, () => arxiv.getCachedPapers());
-  if (arxivPapers && arxivPapers.length > 0) {
-    const categoryCount = {};
-    arxivPapers.forEach(p => {
-      if (!allMap.has(p.id)) {
-        const cat = p.category || '其他';
-        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-        if (categoryCount[cat] <= 2) {
-          allMap.set(p.id, p);
+  // 尝试从各来源获取论文
+  for (const cat of CATEGORIES) {
+    try {
+      // SSRN
+      const ssrnResult = await withTimeout(5000, () => fetchFromSSRN(cat, 2));
+      if (ssrnResult && ssrnResult.length > 0) {
+        allPapers.push(...ssrnResult);
+      }
+    } catch (e) {
+      console.log(`[Push] SSRN ${cat} error:`, e.message);
+    }
+
+    try {
+      // NBER
+      const nberResult = await withTimeout(5000, () => fetchFromNBER(cat, 2));
+      if (nberResult && nberResult.length > 0) {
+        allPapers.push(...nberResult);
+      }
+    } catch (e) {
+      console.log(`[Push] NBER ${cat} error:`, e.message);
+    }
+
+    try {
+      // AFAJOF (主要是行为金融)
+      if (cat === '行为金融') {
+        const afajofResult = await withTimeout(5000, () => fetchFromAFAJOF(3));
+        if (afajofResult && afajofResult.length > 0) {
+          allPapers.push(...afajofResult);
         }
       }
-    });
+    } catch (e) {
+      console.log(`[Push] AFAJOF error:`, e.message);
+    }
+
+    try {
+      // CNKI (农业保险、普惠金融)
+      if (cat === '农业保险' || cat === '普惠金融') {
+        const cnkiResult = await withTimeout(5000, () => fetchFromCNKI(cat === '农业保险' ? 'ERJ' : 'GLSJ', 2));
+        if (cnkiResult && cnkiResult.length > 0) {
+          allPapers.push(...cnkiResult);
+        }
+      }
+    } catch (e) {
+      console.log(`[Push] CNKI ${cat} error:`, e.message);
+    }
   }
 
-  // 获取OpenAlex论文
-  let openalexPapers = await withTimeout(8000, () => fetchOpenAlexPapers(3));
-  if (openalexPapers && openalexPapers.length > 0) {
-    openalexPapers.forEach(p => {
-      if (!allMap.has(p.id)) allMap.set(p.id, p);
-    });
-  }
+  // 去重（基于标题）
+  const seen = new Set();
+  allPapers = allPapers.filter(p => {
+    if (!p.title) return false;
+    const key = p.title.toLowerCase().substring(0, 50);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  return Array.from(allMap.values());
+  return allPapers;
+}
+
+// 临时模拟函数 - 实际需要真实数据源
+async function fetchFromSSRN(category, limit) {
+  return [];
+}
+
+async function fetchFromNBER(category, limit) {
+  return [];
+}
+
+async function fetchFromAFAJOF(limit) {
+  return [];
+}
+
+async function fetchFromCNKI(journal, limit) {
+  return [];
 }
 
 module.exports = async (req, res) => {
@@ -139,45 +149,21 @@ module.exports = async (req, res) => {
     // 获取所有来源的论文
     const allPapers = await getAllPapersForPush();
 
-    // 筛选最近3天发表的论文
+    // 筛选最近2天发表的论文
     const todayStr = today.toISOString().split('T')[0];
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
 
-    const recentPapers = allPapers.filter(p => p.date && p.date >= threeDaysAgoStr && p.date <= todayStr);
+    const recentPapers = allPapers.filter(p => p.date && p.date >= twoDaysAgoStr && p.date <= todayStr);
 
     // 按日期排序，最新的在前
     recentPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // 获取5篇不同分类的论文
-    const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
-    const selectedPapers = [];
-    const usedCategories = new Set();
-
-    for (const paper of recentPapers) {
-      if (selectedPapers.length >= PAPER_COUNT) break;
-      const cat = paper.category || categories.find(c => !usedCategories.has(c));
-      if (cat && !usedCategories.has(cat)) {
-        selectedPapers.push(paper);
-        usedCategories.add(cat);
-      }
-    }
-
-    // 如果论文不够5篇，从其他论文补充
-    if (selectedPapers.length < PAPER_COUNT) {
-      for (const paper of recentPapers) {
-        if (selectedPapers.length >= PAPER_COUNT) break;
-        if (!selectedPapers.find(p => p.id === paper.id)) {
-          selectedPapers.push(paper);
-        }
-      }
-    }
-
-    const hasNewPapers = selectedPapers.length > 0;
+    const hasNewPapers = recentPapers.length > 0;
 
     return res.status(200).json({
-      papers: selectedPapers,
+      papers: recentPapers,
       date: todayStr,
       hasNewPapers: hasNewPapers,
       message: hasNewPapers ? '' : '暂无'
@@ -210,9 +196,9 @@ module.exports = async (req, res) => {
         continue;
       }
 
-      // 计算该日期范围内（往前3天）的论文
+      // 计算该日期范围内（往前2天）的论文
       const dayStart = new Date(date);
-      dayStart.setDate(dayStart.getDate() - 3);
+      dayStart.setDate(dayStart.getDate() - 2);
       const dayEnd = new Date(date);
       const dayStartStr = dayStart.toISOString().split('T')[0];
       const dayEndStr = dayEnd.toISOString().split('T')[0];
@@ -222,35 +208,11 @@ module.exports = async (req, res) => {
         return paperDate >= dayStart && paperDate <= dayEnd;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      // 获取5篇不同分类的论文
-      const categories = ['大模型', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
-      const selectedPapers = [];
-      const usedCategories = new Set();
-
-      for (const paper of recentPapers) {
-        if (selectedPapers.length >= PAPER_COUNT) break;
-        const cat = paper.category;
-        if (cat && !usedCategories.has(cat)) {
-          selectedPapers.push(paper);
-          usedCategories.add(cat);
-        }
-      }
-
-      // 如果论文不够5篇，从其他论文补充
-      if (selectedPapers.length < PAPER_COUNT) {
-        for (const paper of recentPapers) {
-          if (selectedPapers.length >= PAPER_COUNT) break;
-          if (!selectedPapers.find(p => p.id === paper.id)) {
-            selectedPapers.push(paper);
-          }
-        }
-      }
-
       history.push({
         date: dateStr,
-        papers: selectedPapers,
-        hasNewPapers: selectedPapers.length > 0,
-        message: selectedPapers.length > 0 ? '' : '暂无'
+        papers: recentPapers,
+        hasNewPapers: recentPapers.length > 0,
+        message: recentPapers.length > 0 ? '' : '暂无'
       });
     }
 
