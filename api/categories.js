@@ -8,27 +8,39 @@ module.exports = (req, res) => {
       id: 'all',
       name: '全部论文',
       icon: '📚',
-      count: 15
+      count: 0
     },
     {
-      id: '大模型',
-      name: '大模型 (LLM)',
+      id: '计量经济学',
+      name: '计量经济学',
+      icon: '📈',
+      count: 0,
+      color: '#3b82f6',
+      subcategories: [
+        { id: '时间序列', name: '时间序列' },
+        { id: '面板数据', name: '面板数据' },
+        { id: '因果推断', name: '因果推断' },
+        { id: 'VAR/GARCH', name: 'VAR/GARCH' }
+      ]
+    },
+    {
+      id: '金融机器学习',
+      name: '金融机器学习',
       icon: '🤖',
-      count: 7,
+      count: 0,
       color: '#8b5cf6',
       subcategories: [
-        { id: '基础模型/预训练', name: '基础模型/预训练' },
-        { id: '指令微调/RLHF', name: '指令微调/RLHF' },
-        { id: 'RAG/知识增强', name: 'RAG/知识增强' },
-        { id: '多模态模型', name: '多模态模型' },
-        { id: 'AI Agent', name: 'AI Agent' }
+        { id: '量化交易', name: '量化交易' },
+        { id: '风险预测', name: '风险预测' },
+        { id: '资产定价', name: '资产定价' },
+        { id: '深度学习', name: '深度学习' }
       ]
     },
     {
       id: '行为金融',
       name: '行为金融',
       icon: '📊',
-      count: 3,
+      count: 0,
       color: '#ec4899',
       subcategories: [
         { id: '投资者行为', name: '投资者行为' },
@@ -41,7 +53,7 @@ module.exports = (req, res) => {
       id: '巨灾保险',
       name: '巨灾保险',
       icon: '🌪️',
-      count: 2,
+      count: 0,
       color: '#f97316',
       subcategories: [
         { id: '地震保险', name: '地震保险' },
@@ -54,7 +66,7 @@ module.exports = (req, res) => {
       id: '农业保险',
       name: '农业保险',
       icon: '🌾',
-      count: 1,
+      count: 0,
       color: '#22c55e',
       subcategories: [
         { id: '农作物保险', name: '农作物保险' },
@@ -67,7 +79,7 @@ module.exports = (req, res) => {
       id: '普惠金融',
       name: '普惠金融',
       icon: '💰',
-      count: 2,
+      count: 0,
       color: '#06b6d4',
       subcategories: [
         { id: '数字普惠金融', name: '数字普惠金融' },
