@@ -6,6 +6,36 @@ const papersData = [];
 
 
 // ===================================
+// 经典论文数据 - LLM 经典论文 (2017-2023)
+// ===================================
+const classicPapers = [
+  { id: 'attention', title: 'Attention Is All You Need', year: 2017, url: 'https://arxiv.org/abs/1706.03762' },
+  { id: 'rlhp', title: 'Deep Reinforcement Learning from Human Preferences', year: 2017, url: 'https://arxiv.org/abs/1706.06243' },
+  { id: 'ppo', title: 'PPO (Proximal Policy Optimization)', year: 2017, url: 'https://arxiv.org/abs/1707.06347' },
+  { id: 'moe', title: 'MoE (Mixture of Experts)', year: 2017, url: 'https://arxiv.org/abs/1701.06538' },
+  { id: 'bert', title: 'BERT: Pre-training of Deep Bidirectional Transformers', year: 2019, url: 'https://aclanthology.org/N19-1423/' },
+  { id: 'megatron', title: 'Megatron-LM: Training Multi-Billion Parameter Language Models', year: 2019, url: 'https://arxiv.org/abs/1909.08053' },
+  { id: 'zero', title: 'ZeRO: Memory Optimizations Toward Training Trillion Parameter Models', year: 2019, url: 'https://arxiv.org/abs/1910.02054' },
+  { id: 'gpt3', title: 'GPT-3: Language Models are Few-Shot Learners', year: 2020, url: 'https://arxiv.org/abs/2005.14165' },
+  { id: 'scaling', title: 'Scaling Laws for Neural Language Models', year: 2020, url: 'https://arxiv.org/abs/2001.08361' },
+  { id: 'instructgpt', title: 'InstructGPT: Training language models to follow instructions', year: 2022, url: 'https://arxiv.org/abs/2203.02155' },
+  { id: 'chinchilla', title: 'Chinchilla: Training Compute-Optimal Large Language Models', year: 2022, url: 'https://arxiv.org/abs/2203.15556' },
+  { id: 'flashattn', title: 'FlashAttention: Fast and Memory-Efficient Exact Attention', year: 2022, url: 'https://arxiv.org/abs/2205.14135' },
+  { id: 'cot', title: 'Chain-of-Thought Prompting Elicits Reasoning', year: 2022, url: 'https://arxiv.org/abs/2201.11903' },
+  { id: 'emergent', title: 'Emergent Abilities of Large Language Models', year: 2022, url: 'https://arxiv.org/abs/2206.07682' },
+  { id: 'laion', title: 'LAION-5B: A Large-Scale Dataset for Research', year: 2022, url: 'https://arxiv.org/abs/2210.08402' },
+  { id: 'gpt4', title: 'GPT-4 Technical Report', year: 2023, url: 'https://arxiv.org/abs/2303.08774' },
+  { id: 'llama', title: 'LLaMA: Open and Efficient Foundation Language Models', year: 2023, url: 'https://arxiv.org/abs/2302.13971' },
+  { id: 'dpo', title: 'DPO: Direct Preference Optimization', year: 2023, url: 'https://arxiv.org/abs/2305.18290' },
+  { id: 'qlora', title: 'QLoRA: Efficient Finetuning of Quantized LLMs', year: 2023, url: 'https://arxiv.org/abs/2305.14314' },
+  { id: 'mamba', title: 'Mamba: Linear-Time Sequence Modeling', year: 2023, url: 'https://arxiv.org/abs/2312.00752' },
+  { id: 'vllm', title: 'PagedAttention: Virtual Memory Management for LLMs', year: 2023, url: 'https://arxiv.org/abs/2309.06180' },
+  { id: 'mistral', title: 'Mistral 7B: Efficient Language Models', year: 2023, url: 'https://arxiv.org/abs/2310.06825' },
+  { id: 'tot', title: 'Tree of Thoughts: Deliberate Problem Solving', year: 2023, url: 'https://arxiv.org/abs/2305.10601' }
+];
+
+
+// ===================================
 // Subcategories Data
 // ===================================
 const subcategoriesData = {
@@ -51,7 +81,8 @@ const elements = {
 function getCategoryName(category) {
   const names = {
     all: "全部论文",
-    llm: "大模型",
+    econometrics: "计量经济学",
+    finml: "金融机器学习",
     behavior: "行为金融",
     catastrophe: "巨灾保险",
     agriculture: "农业保险",
@@ -63,7 +94,8 @@ function getCategoryName(category) {
 // 获取分类的 CSS 类名（中文分类 -> 英文类名）
 function getCategoryClass(category) {
   const classMap = {
-    '大模型': 'llm',
+    '计量经济学': 'econometrics',
+    '金融机器学习': 'finml',
     '行为金融': 'behavior',
     '巨灾保险': 'catastrophe',
     '农业保险': 'agriculture',
@@ -93,25 +125,57 @@ function generateTagCloud() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 12);
 
-  const maxCount = sortedTags[0]?.[1] || 1;
-
-  elements.tagCloud.innerHTML = sortedTags.map(([tag, count]) => {
-    const size = count === maxCount ? "size-lg" : count > maxCount * 0.7 ? "size-md" : "size-sm";
-    return `<span class="tag-item ${size}" onclick="searchByTag('${tag}')">${tag}</span>`;
+  elements.tagCloud.innerHTML = sortedTags.map(([tag]) => {
+    return `<span class="tag-item" onclick="searchByTag('${tag}')">${tag}</span>`;
   }).join("");
 }
 
 function renderHotList() {
-  const hotPapers = [...papersData]
-    .sort((a, b) => b.citations - a.citations)
-    .slice(0, 5);
-
-  elements.hotList.innerHTML = hotPapers.map((paper, index) => `
-    <li class="hot-item">
+  // 显示5篇经典论文
+  const top5 = classicPapers.slice(0, 5);
+  elements.hotList.innerHTML = top5.map((paper, index) => `
+    <li class="hot-item" onclick="window.open('${paper.url}', '_blank')">
       <span class="hot-rank ${index < 3 ? `top-${index + 1}` : ''}">${index + 1}</span>
-      <span class="hot-title" onclick="viewPaper(${paper.id})">${paper.title}</span>
+      <span class="hot-title">${paper.title}</span>
     </li>
   `).join("");
+}
+
+// 显示经典论文弹窗
+function showClassicModal() {
+  const modal = document.getElementById('classicModal');
+  const body = document.getElementById('classicModalBody');
+
+  body.innerHTML = `
+    <h2 class="modal-title">经典论文</h2>
+    <p class="modal-subtitle">23篇 LLM 经典论文 (2017-2023)</p>
+    <div class="classic-list">
+      ${classicPapers.map((paper, index) => `
+        <a href="${paper.url}" target="_blank" class="classic-item">
+          <span class="classic-rank ${index < 3 ? `top-${index + 1}` : ''}">${index + 1}</span>
+          <span class="classic-info">
+            <span class="classic-title">${paper.title}</span>
+            <span class="classic-meta">${paper.year}</span>
+          </span>
+          <svg class="classic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      `).join('')}
+    </div>
+  `;
+
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+// 关闭经典论文弹窗
+function closeClassicModal() {
+  const modal = document.getElementById('classicModal');
+  modal.classList.remove('active');
+  document.body.style.overflow = '';
 }
 
 function updateCounts() {
@@ -1169,10 +1233,33 @@ function getDailyPushPapers() {
     .slice(0, pushCount);
 }
 
+// 存储今日推送的全部论文（用于查看全部）
+let allTodayPapers = [];
+
+// 渲染推送卡片
+function renderPushCards(papers, container) {
+  container.innerHTML = papers.map(paper => {
+    const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
+    const isHot = paper.citations > 5000;
+    const categoryClass = getCategoryClass(paper.category) || paper.category;
+
+    return `
+      <div class="push-card" onclick="viewPaper('${paper.id}')">
+        <span class="push-card-tag ${categoryClass}">${paper.category}</span>
+        <h4 class="push-card-title">${paper.title}</h4>
+        <div class="push-card-meta">${paper.source || paper.venue || 'arXiv'}</div>
+        ${isNew ? '<span class="push-card-badge new">🆕 新论文</span>' : ''}
+        ${isHot ? '<span class="push-card-badge hot">🔥 热门</span>' : ''}
+      </div>
+    `;
+  }).join("");
+}
+
 // 渲染每日推送
 async function renderDailyPush() {
   const pushGrid = document.getElementById("pushGrid");
   const pushDate = document.getElementById("pushDate");
+  const dailyPushMore = document.querySelector(".daily-push-more");
 
   try {
     // 从 API 获取今日推送
@@ -1183,37 +1270,52 @@ async function renderDailyPush() {
     const today = new Date();
     pushDate.textContent = `· ${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
 
+    // 存储全部论文
+    allTodayPapers = pushPapers;
+
     // 检查是否有新论文
     if (!data.hasNewPapers || pushPapers.length === 0) {
       pushGrid.innerHTML = `
         <div class="push-card empty">
           <div class="push-empty-icon">📭</div>
           <div class="push-empty-text">${data.message || '今日暂无内容'}</div>
-          <div class="push-empty-hint">最近3天无新论文</div>
         </div>
       `;
+      if (dailyPushMore) dailyPushMore.style.display = 'none';
       return;
     }
 
-    // 渲染推送卡片
-    pushGrid.innerHTML = pushPapers.map(paper => {
-      const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
-      const isHot = paper.citations > 5000;
-      const categoryClass = getCategoryClass(paper.category) || paper.category;
+    // 渲染推送卡片（只显示前5篇）
+    const displayPapers = pushPapers.slice(0, 5);
+    renderPushCards(displayPapers, pushGrid);
 
-      return `
-        <div class="push-card" onclick="viewPaper('${paper.id}')">
-          <span class="push-card-tag ${categoryClass}">${paper.category}</span>
-          <h4 class="push-card-title">${paper.title}</h4>
-          <div class="push-card-meta">${paper.source || paper.venue || 'arXiv'}</div>
-          ${isNew ? '<span class="push-card-badge new">🆕 新论文</span>' : ''}
-          ${isHot ? '<span class="push-card-badge hot">🔥 热门</span>' : ''}
-        </div>
-      `;
-    }).join("");
+    // 如果超过5篇，显示查看全部
+    if (pushPapers.length > 5 && dailyPushMore) {
+      dailyPushMore.style.display = '';
+      dailyPushMore.textContent = `查看全部 (${pushPapers.length}) →`;
+    } else if (dailyPushMore) {
+      dailyPushMore.style.display = 'none';
+    }
   } catch (error) {
     console.error('获取每日推送失败:', error);
     pushGrid.innerHTML = '<p>暂无推送</p>';
+    if (dailyPushMore) dailyPushMore.style.display = 'none';
+  }
+}
+
+// 显示今日全部推送
+function showAllTodayPapers() {
+  const pushGrid = document.getElementById("pushGrid");
+  const dailyPushMore = document.querySelector(".daily-push-more");
+
+  if (allTodayPapers.length === 0) return;
+
+  // 渲染全部论文
+  renderPushCards(allTodayPapers, pushGrid);
+
+  // 隐藏查看全部按钮
+  if (dailyPushMore) {
+    dailyPushMore.style.display = 'none';
   }
 }
 

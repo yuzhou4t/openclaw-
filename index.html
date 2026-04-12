@@ -47,10 +47,16 @@
         <div class="nav-section">
           <div class="nav-section-title">领域分类</div>
 
-          <a href="#" class="nav-item" data-category="大模型">
-            <span class="nav-dot" style="background: var(--tag-llm)"></span>
-            <span>大模型</span>
-            <span class="nav-count" id="countLLM">0</span>
+          <a href="#" class="nav-item" data-category="计量经济学">
+            <span class="nav-dot" style="background: #3b82f6"></span>
+            <span>计量经济学</span>
+            <span class="nav-count" id="countEconometrics">0</span>
+          </a>
+
+          <a href="#" class="nav-item" data-category="金融机器学习">
+            <span class="nav-dot" style="background: #8b5cf6"></span>
+            <span>金融机器学习</span>
+            <span class="nav-count" id="countFinML">0</span>
           </a>
 
           <a href="#" class="nav-item" data-category="行为金融">
@@ -134,17 +140,18 @@
 
     <!-- Right Sidebar -->
     <aside class="right-sidebar">
-      <!-- 热门论文 -->
+      <!-- 经典论文 -->
       <div class="widget">
         <h3 class="widget-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
           </svg>
-          热门论文
+          经典论文
         </h3>
         <ul class="hot-list" id="hotList">
           <!-- 动态生成 -->
         </ul>
+        <div class="classic-more" onclick="showClassicModal()">更多 →</div>
       </div>
 
       <!-- 热门标签 -->
@@ -170,9 +177,13 @@
       <span>📄</span>
       <span>全部</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-category="大模型">
+    <a href="#" class="mobile-nav-item" data-category="计量经济学">
+      <span>📈</span>
+      <span>计量经济学</span>
+    </a>
+    <a href="#" class="mobile-nav-item" data-category="金融机器学习">
       <span>🤖</span>
-      <span>大模型</span>
+      <span>金融机器学习</span>
     </a>
     <a href="#" class="mobile-nav-item" data-category="行为金融">
       <span>📊</span>
@@ -296,6 +307,21 @@
             邮件请求
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Classic Papers Modal -->
+  <div class="paper-modal" id="classicModal">
+    <div class="paper-modal-overlay" onclick="closeClassicModal()"></div>
+    <div class="paper-modal-content paper-modal-wide">
+      <button class="paper-modal-close" onclick="closeClassicModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+      <div class="classic-modal-body" id="classicModalBody">
+        <!-- 动态加载经典论文 -->
       </div>
     </div>
   </div>
