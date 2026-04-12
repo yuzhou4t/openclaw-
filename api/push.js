@@ -5,6 +5,7 @@
  */
 
 const { selectTopPapers } = require('./scorer');
+const sources = require('./sources');
 
 // 超时包装
 const withTimeout = (ms, fn) => {
@@ -20,73 +21,56 @@ const PUSH_DAYS = [2, 5];
 // 六大分类
 const CATEGORIES = ['计量经济学', '金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
 
-// 分类来源映射
-const CATEGORY_SOURCE_MAP = {
-  '计量经济学': ['计量经济学', '计量经济学'],
-  '金融机器学习': ['金融机器学习', '金融机器学习'],
-  '行为金融': ['行为金融', '行为金融'],
-  '巨灾保险': ['巨灾保险', '巨灾保险'],
-  '农业保险': ['农业保险', '农业保险'],
-  '普惠金融': ['普惠金融', '普惠金融']
-};
-
-// 模拟从各来源获取论文（实际需要调用对应API）
-async function fetchFromSource(source, category, limit) {
-  // 这里模拟返回空数组，实际部署时需要接入真实数据源
-  // SSRN/NBER/AFAJOF/CNKI 的适配器已创建，但服务器端无法直接调用浏览器端API
-  // 需要将这些适配器改为服务端抓取逻辑
-  return [];
-}
-
 // 合并论文数据
 async function getAllPapersForPush() {
   let allPapers = [];
 
-  // 尝试从各来源获取论文
-  for (const cat of CATEGORIES) {
-    try {
-      // SSRN
-      const ssrnResult = await withTimeout(5000, () => fetchFromSSRN(cat, 2));
-      if (ssrnResult && ssrnResult.length > 0) {
-        allPapers.push(...ssrnResult);
-      }
-    } catch (e) {
-      console.log(`[Push] SSRN ${cat} error:`, e.message);
-    }
+  // 并行从各来源获取论文
+  try {
+    const [ssrnEconomics, ssrnFinML, ssrnBehavioral, ssrnCatastrophe, ssrnAgri, ssrnInclusive] = await Promise.all([
+      withTimeout(6000, () => sources.fetchSSRNPapers('计量经济学', 3)),
+      withTimeout(6000, () => sources.fetchSSRNPapers('金融机器学习', 3)),
+      withTimeout(6000, () => sources.fetchSSRNPapers('行为金融', 3)),
+      withTimeout(6000, () => sources.fetchSSRNPapers('巨灾保险', 3)),
+      withTimeout(6000, () => sources.fetchSSRNPapers('农业保险', 3)),
+      withTimeout(6000, () => sources.fetchSSRNPapers('普惠金融', 3))
+    ]);
 
-    try {
-      // NBER
-      const nberResult = await withTimeout(5000, () => fetchFromNBER(cat, 2));
-      if (nberResult && nberResult.length > 0) {
-        allPapers.push(...nberResult);
-      }
-    } catch (e) {
-      console.log(`[Push] NBER ${cat} error:`, e.message);
-    }
+    const [nberEconomics, nberFinML, nberBehavioral, nberCatastrophe, nberAgri, nberInclusive] = await Promise.all([
+      withTimeout(6000, () => sources.fetchNBERPapers('计量经济学', 3)),
+      withTimeout(6000, () => sources.fetchNBERPapers('金融机器学习', 3)),
+      withTimeout(6000, () => sources.fetchNBERPapers('行为金融', 3)),
+      withTimeout(6000, () => sources.fetchNBERPapers('巨灾保险', 3)),
+      withTimeout(6000, () => sources.fetchNBERPapers('农业保险', 3)),
+      withTimeout(6000, () => sources.fetchNBERPapers('普惠金融', 3))
+    ]);
 
-    try {
-      // AFAJOF (主要是行为金融)
-      if (cat === '行为金融') {
-        const afajofResult = await withTimeout(5000, () => fetchFromAFAJOF(3));
-        if (afajofResult && afajofResult.length > 0) {
-          allPapers.push(...afajofResult);
-        }
-      }
-    } catch (e) {
-      console.log(`[Push] AFAJOF error:`, e.message);
-    }
+    const [afajofPapers, cnkiErj, cnkiGlsj] = await Promise.all([
+      withTimeout(6000, () => sources.fetchAFAJOFPapers(5)),
+      withTimeout(6000, () => sources.fetchCNKIPapers('ERJ', 3)),
+      withTimeout(6000, () => sources.fetchCNKIPapers('GLSJ', 3))
+    ]);
 
-    try {
-      // CNKI (农业保险、普惠金融)
-      if (cat === '农业保险' || cat === '普惠金融') {
-        const cnkiResult = await withTimeout(5000, () => fetchFromCNKI(cat === '农业保险' ? 'ERJ' : 'GLSJ', 2));
-        if (cnkiResult && cnkiResult.length > 0) {
-          allPapers.push(...cnkiResult);
-        }
-      }
-    } catch (e) {
-      console.log(`[Push] CNKI ${cat} error:`, e.message);
-    }
+    // 合并所有论文
+    allPapers = [
+      ...(ssrnEconomics || []),
+      ...(ssrnFinML || []),
+      ...(ssrnBehavioral || []),
+      ...(ssrnCatastrophe || []),
+      ...(ssrnAgri || []),
+      ...(ssrnInclusive || []),
+      ...(nberEconomics || []),
+      ...(nberFinML || []),
+      ...(nberBehavioral || []),
+      ...(nberCatastrophe || []),
+      ...(nberAgri || []),
+      ...(nberInclusive || []),
+      ...(afajofPapers || []),
+      ...(cnkiErj || []),
+      ...(cnkiGlsj || [])
+    ];
+  } catch (e) {
+    console.log('[Push] Error fetching papers:', e.message);
   }
 
   // 去重（基于标题）
@@ -100,23 +84,6 @@ async function getAllPapersForPush() {
   });
 
   return allPapers;
-}
-
-// 临时模拟函数 - 实际需要真实数据源
-async function fetchFromSSRN(category, limit) {
-  return [];
-}
-
-async function fetchFromNBER(category, limit) {
-  return [];
-}
-
-async function fetchFromAFAJOF(limit) {
-  return [];
-}
-
-async function fetchFromCNKI(journal, limit) {
-  return [];
 }
 
 module.exports = async (req, res) => {
