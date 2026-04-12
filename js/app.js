@@ -39,7 +39,8 @@ const classicPapers = [
 // Subcategories Data
 // ===================================
 const subcategoriesData = {
-  '大模型': ["基础模型/预训练", "指令微调/RLHF", "RAG/知识增强", "多模态模型", "AI Agent", "其他"],
+  '计量经济学': ["时间序列", "面板数据", "因果推断", "VAR/GARCH", "其他"],
+  '金融机器学习': ["量化交易", "风险预测", "资产定价", "深度学习", "其他"],
   '行为金融': ["投资者行为", "市场异象", "行为资产定价", "金融科技", "其他"],
   '巨灾保险': ["地震保险", "洪水/飓风保险", "气候风险建模", "再保险", "其他"],
   '农业保险': ["农作物保险", "畜牧保险", "天气指数保险", "农业信贷", "其他"],
@@ -180,7 +181,8 @@ function closeClassicModal() {
 
 function updateCounts() {
   document.getElementById("countAll").textContent = papersData.length;
-  document.getElementById("countLLM").textContent = papersData.filter(p => p.category === "大模型").length;
+  document.getElementById("countEconometrics").textContent = papersData.filter(p => p.category === "计量经济学").length;
+  document.getElementById("countFinML").textContent = papersData.filter(p => p.category === "金融机器学习").length;
   document.getElementById("countBehavior").textContent = papersData.filter(p => p.category === "行为金融").length;
   document.getElementById("countCatastrophe").textContent = papersData.filter(p => p.category === "巨灾保险").length;
   document.getElementById("countAgriculture").textContent = papersData.filter(p => p.category === "农业保险").length;
