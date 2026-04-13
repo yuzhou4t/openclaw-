@@ -26,10 +26,20 @@ async function getMergedPapers(forceRefresh = false) {
   const categories = ['计量经济学', '金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
   let allPapers = [];
 
+  // 计算上周日期范围
+  const today = new Date();
+  const lastWeekEnd = new Date(today);
+  lastWeekEnd.setDate(today.getDate() - today.getDay() - 6); // 上周日
+  const lastWeekStart = new Date(lastWeekEnd);
+  lastWeekStart.setDate(lastWeekEnd.getDate() - 6); // 上周一
+  const dateFrom = lastWeekStart.toISOString().split('T')[0];
+  const dateTo = lastWeekEnd.toISOString().split('T')[0];
+  console.log(`[Papers] Fetching for date range: ${dateFrom} to ${dateTo}`);
+
   // 并行获取各分类论文
   const results = await Promise.all(
     categories.map(cat =>
-      openalex.getPapersByTopic(cat, 5).catch(e => {
+      openalex.getPapersByTopic(cat, 8, { dateFrom, dateTo }).catch(e => {
         console.log(`[Papers] ${cat} error:`, e.message);
         return [];
       })
@@ -43,8 +53,7 @@ async function getMergedPapers(forceRefresh = false) {
     }
   });
 
-  // 过滤掉未来日期的论文
-  const today = new Date();
+  // 过滤掉未来日期的论文（双重保险）
   const todayStr = today.getUTCFullYear() + '-' +
     String(today.getUTCMonth() + 1).padStart(2, '0') + '-' +
     String(today.getUTCDate()).padStart(2, '0');

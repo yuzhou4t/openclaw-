@@ -13,7 +13,7 @@ const TOPIC_FILTERS = {
   '计量经济学': 'econometrics,time series analysis,panel data,causal inference,regression model',
   '金融机器学习': 'machine learning finance,quantitative trading,algorithmic trading,deep learning finance',
   '行为金融': 'behavioral finance,investor sentiment,market anomaly,stock market,investor behavior',
-  '巨灾保险': 'catastrophe insurance,risk management,climate risk,reinsurance,earthquake insurance',
+  '巨灾保险': 'climate risk insurance,disaster risk,hurricane flood insurance,catastrophe risk,reinsurance',
   '农业保险': 'agricultural insurance,crop insurance,weather index,rural finance,farm insurance',
   '普惠金融': 'financial inclusion,microfinance,rural finance,digital finance,inclusive finance'
 };
@@ -62,18 +62,31 @@ async function searchPapers(query, options = {}) {
 
 /**
  * 获取某主题的最新论文
+ * @param {string} category - 分类名称
+ * @param {number} maxResults - 最大结果数
+ * @param {object} options - 可选参数 { dateFrom, dateTo }
  */
-async function getPapersByTopic(category, maxResults = 10) {
+async function getPapersByTopic(category, maxResults = 10, options = {}) {
   const keywords = TOPIC_FILTERS[category] || category;
 
   try {
+    const params = {
+      search: keywords,
+      'per-page': maxResults,
+      sort: 'publication_date:desc',
+      filter: 'is_oa:true'
+    };
+
+    // 添加日期过滤
+    if (options.dateFrom) {
+      params['filter'] += `,from_publication_date:${options.dateFrom}`;
+    }
+    if (options.dateTo) {
+      params['filter'] += `,to_publication_date:${options.dateTo}`;
+    }
+
     const response = await axios.get(`${OPENALEX_API}/works`, {
-      params: {
-        search: keywords,
-        'per-page': maxResults,
-        sort: 'publication_date:desc',
-        filter: 'is_oa:true'
-      },
+      params,
       timeout: 15000
     });
 

@@ -24,7 +24,8 @@
       "Bash(python3 -c ':*)",
       "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=5\")",
       "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+finance&per-page=3\")",
-      "Bash(node -c /Users/yuzhou4tc/Public/openclaw检索论文/api/openalex.js)"
+      "Bash(node -c /Users/yuzhou4tc/Public/openclaw检索论文/api/openalex.js)",
+      "Bash(curl -sk \"https://api.openalex.org/works?search=econometrics+time+series&filter=from_publication_date:2026-04-06,to_publication_date:2026-04-12,is_oa:true&per-page=10\")"
     ],
     "additionalDirectories": [
       "/Users/yuzhou4tc/爱网站/data",
