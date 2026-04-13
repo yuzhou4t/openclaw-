@@ -1006,8 +1006,24 @@ function openPdfViewer(id) {
     pdfDownloadBtn.style.display = 'flex';
     pdfOpenBtn.style.display = 'flex';
     pdfOpenBtn.href = paper.pdfUrl;
+  } else if (paper.url) {
+    // 无PDF但有论文页面链接，直接打开论文页面
+    pdfViewerContainer.style.display = 'none';
+    pdfNoSource.style.display = 'flex';
+    pdfDownloadBtn.style.display = 'none';
+    pdfOpenBtn.style.display = 'none';
+    // 修改"暂无可用PDF"区域的按钮，让第一个按钮直接打开论文页面
+    const altBtns = pdfNoSource.querySelectorAll('.pdf-alt-btn');
+    if (altBtns.length > 0) {
+      altBtns[0].onclick = () => window.open(paper.url, '_blank');
+      altBtns[0].innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>查看论文页面`;
+    }
   } else {
-    // 无PDF链接
+    // 真的什么都没有
     pdfViewerContainer.style.display = 'none';
     pdfNoSource.style.display = 'flex';
     pdfDownloadBtn.style.display = 'none';
