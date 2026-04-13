@@ -106,7 +106,9 @@ function getCategoryClass(category) {
 }
 
 function formatDate(dateStr) {
+  if (!dateStr) return '最近';
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '最近';
   return date.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "short",
