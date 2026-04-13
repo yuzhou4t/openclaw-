@@ -329,9 +329,9 @@ function getFilteredPapers() {
     const query = state.searchQuery.toLowerCase();
     filtered = filtered.filter(p =>
       p.title.toLowerCase().includes(query) ||
-      p.authors.some(a => a.toLowerCase().includes(query)) ||
-      p.tags.some(t => t.toLowerCase().includes(query)) ||
-      p.abstract.toLowerCase().includes(query)
+      (Array.isArray(p.authors) && p.authors.some(a => a.toLowerCase().includes(query))) ||
+      (Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(query))) ||
+      (p.abstract && p.abstract.toLowerCase().includes(query))
     );
   }
 
@@ -1353,12 +1353,14 @@ async function loadPapersFromAPI() {
   try {
     const response = await fetch(`${API_BASE}/api/papers`);
     const data = await response.json();
+    console.log('API Response:', data);
+    console.log('papers type:', typeof data.papers, 'length:', data.papers?.length);
     if (data.papers && data.papers.length > 0) {
       // 转换为前端格式
       return data.papers.map(p => ({
         id: parseInt(p.id),
         title: p.title,
-        authors: p.authors,
+        authors: p.authors || [],
         source: p.source || 'arXiv',
         date: p.date,
         abstract: p.abstract,
@@ -1370,6 +1372,7 @@ async function loadPapersFromAPI() {
         url: p.url || `https://arxiv.org/abs/${p.id}`
       }));
     }
+    console.log('No papers found in API response');
     return null;
   } catch (error) {
     console.log('API load failed, using local data:', error);

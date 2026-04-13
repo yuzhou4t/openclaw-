@@ -143,6 +143,14 @@ const Favorite = sequelize.define('Favorite', {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.BIGINT,
+    allowNull: false
+  },
+  paperId: {
+    type: DataTypes.BIGINT,
+    allowNull: false
   }
 }, {
   tableName: 'favorites',
@@ -157,6 +165,14 @@ const ReadingList = sequelize.define('ReadingList', {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.BIGINT,
+    allowNull: false
+  },
+  paperId: {
+    type: DataTypes.BIGINT,
+    allowNull: false
   },
   status: {
     type: DataTypes.STRING(20),
@@ -181,6 +197,10 @@ const Subscription = sequelize.define('Subscription', {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.BIGINT,
+    allowNull: false
   },
   type: {
     type: DataTypes.STRING(20),

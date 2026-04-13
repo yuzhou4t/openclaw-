@@ -22,7 +22,7 @@ router.get('/papers', async (req, res, next) => {
       subcategory,
       keyword,
       page = 1,
-      limit = 20,
+      limit = 100,
       sort = 'latest'
     } = req.query;
 

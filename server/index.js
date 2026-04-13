@@ -32,13 +32,17 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// 静态文件服务
+app.use(express.static('.'));
+
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API 路由
+// API 路由 - 同时支持 /api 和 /api/v1
 app.use('/api/v1', apiRoutes);
+app.use('/api', apiRoutes);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

@@ -5,6 +5,7 @@
  */
 
 const openalex = require('./openalex');
+const { searchPapers: firecrawlSearch } = require('../lib/firecrawl');
 
 // 缓存合并后的论文数据
 let mergedPapersCache = null;
@@ -36,14 +37,20 @@ async function getMergedPapers(forceRefresh = false) {
   const dateTo = lastWeekEnd.toISOString().split('T')[0];
   console.log(`[Papers] Fetching for date range: ${dateFrom} to ${dateTo}`);
 
-  // 并行获取各分类论文
+  // 并行获取各分类论文（OpenAlex + Firecrawl）
   const results = await Promise.all(
-    categories.map(cat =>
-      openalex.getPapersByTopic(cat, 8, { dateFrom, dateTo }).catch(e => {
+    categories.map(async cat => {
+      try {
+        // OpenAlex 论文
+        const oaPapers = await openalex.getPapersByTopic(cat, 5, { dateFrom, dateTo });
+        // Firecrawl 论文（来自 SSRN/NBER）
+        const fcPapers = await firecrawlSearch(cat, 3, { dateFrom, dateTo });
+        return [...oaPapers, ...fcPapers];
+      } catch (e) {
         console.log(`[Papers] ${cat} error:`, e.message);
         return [];
-      })
-    )
+      }
+    })
   );
 
   // 合并所有论文
@@ -57,7 +64,7 @@ async function getMergedPapers(forceRefresh = false) {
   const todayStr = today.getUTCFullYear() + '-' +
     String(today.getUTCMonth() + 1).padStart(2, '0') + '-' +
     String(today.getUTCDate()).padStart(2, '0');
-  allPapers = allPapers.filter(p => p.date && p.date <= todayStr);
+  allPapers = allPapers.filter(p => !p.date || p.date <= todayStr);
 
   // 按日期排序
   allPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
