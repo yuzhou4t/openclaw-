@@ -209,7 +209,7 @@ function renderPapers(papers) {
   elements.paperList.innerHTML = papers.map(paper => `
     <article class="paper-card">
       <div class="paper-header">
-        <h2 class="paper-title" onclick="viewPaper(${paper.id})">${paper.title}</h2>
+        <h2 class="paper-title" onclick="viewPaper('${paper.id}')">${paper.title}</h2>
       </div>
       <div class="paper-meta">
         <span class="paper-author">${paper.authors.map((author, i) =>
@@ -232,7 +232,7 @@ function renderPapers(papers) {
           ${paper.tags.map(tag => `<span class="paper-stat" onclick="searchByTag('${tag}')">#${tag}</span>`).join("")}
         </div>
         <div class="paper-links">
-          <a href="#" class="paper-link paper-link-secondary" onclick="viewPaper(${paper.id})">详情</a>
+          <a href="#" class="paper-link paper-link-secondary" onclick="viewPaper('${paper.id}')">详情</a>
           ${paper.pdfUrl ?
             `<a href="#" class="paper-link paper-link-primary" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>` :
             `<a href="#" class="paper-link paper-link-disabled" title="暂无可用PDF" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>`
@@ -598,7 +598,7 @@ async function viewPaper(id) {
       </h3>
       <div class="paper-detail-related">
         ${relatedPapers.map(rel => `
-          <div class="paper-related-card" onclick="viewPaper(${rel.id})">
+          <div class="paper-related-card" onclick="viewPaper('${rel.id}')">
             <div class="paper-related-card-title">${rel.title}</div>
             <div class="paper-related-card-meta">${rel.source} · ${formatDate(rel.date)}</div>
           </div>
@@ -773,7 +773,7 @@ function viewAuthor(authorName) {
       <h3 class="author-section-title">论文列表 (${author.papers.length})</h3>
       <div class="author-papers-list">
         ${author.papers.slice(0, 10).map(p => `
-          <div class="author-paper-item" onclick="viewPaper(${p.id}); closeAuthorModal();">
+          <div class="author-paper-item" onclick="viewPaper('${p.id}'); closeAuthorModal();">
             <div class="author-paper-title">${p.title}</div>
             <div class="author-paper-meta">${p.source} · ${formatDate(p.date)} · ${p.citations} 引用</div>
           </div>
