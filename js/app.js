@@ -441,7 +441,7 @@ async function viewPaper(id) {
         const apiPaper = await response.json();
         // 转换为前端格式
         paper = {
-          id: parseInt(apiPaper.id),
+          id: apiPaper.id,
           title: apiPaper.title,
           authors: apiPaper.authors,
           source: apiPaper.source || 'arXiv',
@@ -1399,7 +1399,7 @@ async function loadPapersFromAPI() {
     if (data.papers && data.papers.length > 0) {
       // 转换为前端格式
       return data.papers.map(p => ({
-        id: parseInt(p.id),
+        id: p.id,
         title: p.title,
         authors: p.authors || [],
         source: p.source || 'arXiv',
