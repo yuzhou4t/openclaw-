@@ -1,18 +1,292 @@
 /**
- * 论文服务
- * 直接从 OpenAlex 和 Firecrawl 获取论文，不使用本地数据库
+ * 论文服务 - Architecture 2.0
+ * 以 OpenAlex 为核心，用 Proxy/轻量爬虫为辅助
  */
-const openalex = require('../../api/openalex');
-const { searchPapers: firecrawlSearch } = require('../../lib/firecrawl');
+
+const axios = require('axios');
+
+// OpenAlex API
+const OPENALEX_BASE = 'https://api.openalex.org';
+
+// 六大分类的 OpenAlex 搜索关键词
+const CATEGORY_QUERIES = {
+  '计量经济学': 'econometrics time series panel data causal inference regression',
+  '金融机器学习': 'machine learning quantitative trading algorithmic trading deep learning finance',
+  '行为金融': 'behavioral finance investor sentiment market anomaly investor behavior',
+  '巨灾保险': 'catastrophe insurance climate risk disaster reinsurance hurricane earthquake',
+  '农业保险': 'agricultural insurance crop insurance weather index farm rural',
+  '普惠金融': 'financial inclusion microfinance digital finance rural inclusive'
+};
+
+// OpenAlex 机构/来源过滤
+const SOURCE_FILTERS = {
+  // NBER 机构 ID
+  nber: 'institutions.id:I130769515',
+  // arXiv 来源 ID
+  arxiv: 'locations.source.id:S4306400194'
+};
 
 // 缓存
 let cachedPapers = null;
 let lastFetchTime = null;
-const CACHE_DURATION = 60 * 60 * 1000; // 1小时
+const CACHE_DURATION = 30 * 60 * 1000; // 30分钟
 
-const CATEGORIES = ['计量经济学', '金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+const CATEGORIES = Object.keys(CATEGORY_QUERIES);
 
-// 获取论文列表
+/**
+ * 从 OpenAlex 获取论文
+ */
+async function fetchFromOpenAlex(category, options = {}) {
+  const { dateFrom, dateTo, limit = 5 } = options;
+  const query = CATEGORY_QUERIES[category] || category;
+
+  try {
+    const params = {
+      search: query,
+      'per-page': limit,
+      sort: 'publication_date:desc'
+    };
+
+    // 添加日期过滤
+    if (dateFrom || dateTo) {
+      let dateFilter = '';
+      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
+      if (dateFrom && dateTo) dateFilter += ',';
+      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
+      params.filter = dateFilter;
+    }
+
+    const r = await axios.get(`${OPENALEX_BASE}/works`, {
+      params,
+      timeout: 15000
+    });
+
+    return r.data.results.map(transformOpenAlexPaper);
+  } catch (error) {
+    console.error(`OpenAlex error for ${category}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * 从 NBER (via OpenAlex) 获取论文
+ */
+async function fetchFromNBER(options = {}) {
+  const { dateFrom, dateTo, limit = 3 } = options;
+
+  try {
+    const params = {
+      filter: SOURCE_FILTERS.nber,
+      'per-page': limit,
+      sort: 'publication_date:desc'
+    };
+
+    if (dateFrom || dateTo) {
+      let dateFilter = '';
+      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
+      if (dateFrom && dateTo) dateFilter += ',';
+      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
+      params.filter += `,${dateFilter}`;
+    }
+
+    const r = await axios.get(`${OPENALEX_BASE}/works`, {
+      params,
+      timeout: 15000
+    });
+
+    return r.data.results.map(w => ({
+      ...transformOpenAlexPaper(w),
+      source: 'NBER',
+      category: guessCategory(w.title, w.abstract_inverted_index ? invertAbstract(w.abstract_inverted_index) : '')
+    }));
+  } catch (error) {
+    console.error('NBER fetch error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 从 arXiv (via OpenAlex) 获取论文
+ */
+async function fetchFromArxiv(options = {}) {
+  const { dateFrom, dateTo, limit = 3 } = options;
+
+  try {
+    const params = {
+      filter: SOURCE_FILTERS.arxiv,
+      'per-page': limit,
+      sort: 'publication_date:desc'
+    };
+
+    if (dateFrom || dateTo) {
+      let dateFilter = '';
+      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
+      if (dateFrom && dateTo) dateFilter += ',';
+      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
+      params.filter += `,${dateFilter}`;
+    }
+
+    const r = await axios.get(`${OPENALEX_BASE}/works`, {
+      params,
+      timeout: 15000
+    });
+
+    return r.data.results.map(w => ({
+      ...transformOpenAlexPaper(w),
+      source: 'arXiv',
+      category: guessCategory(w.title, w.abstract_inverted_index ? invertAbstract(w.abstract_inverted_index) : '')
+    }));
+  } catch (error) {
+    console.error('arXiv fetch error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 转换 OpenAlex 论文格式
+ */
+function transformOpenAlexPaper(work) {
+  const title = work.title || 'Untitled';
+  const abstractText = work.abstract_inverted_index ?
+    invertAbstract(work.abstract_inverted_index) : '';
+
+  const authors = (work.authorships || [])
+    .map(a => a.author?.display_name || 'Unknown')
+    .slice(0, 5);
+
+  const journal = work.primary_location?.source?.display_name || 'OpenAlex';
+  const publicationDate = work.publication_date || new Date().toISOString().split('T')[0];
+
+  const id = work.id ? work.id.split('/').pop() : work.doi?.split('/').pop() || `oa_${Date.now()}`;
+  const url = work.doi || `https://openalex.org/works/${id}`;
+  const pdfUrl = work.best_oa_location?.pdf_url || null;
+
+  return {
+    id,
+    title,
+    authors,
+    source: journal,
+    date: publicationDate,
+    abstract: abstractText.substring(0, 300),
+    category: guessCategory(title, abstractText),
+    subcategory: guessSubcategory(title, abstractText),
+    tags: extractTags(title, abstractText),
+    citations: work.cited_by_count || 0,
+    pdfUrl,
+    url,
+    openalexId: work.id
+  };
+}
+
+function invertAbstract(invertedIndex) {
+  if (!invertedIndex) return '';
+  const words = Object.keys(invertedIndex);
+  words.sort((a, b) => invertedIndex[a][0] - invertedIndex[b][0]);
+  return words.join(' ');
+}
+
+function guessCategory(title, abstract) {
+  const content = (title + ' ' + abstract).toLowerCase();
+
+  if (content.includes('econometric') || content.includes('time series') ||
+      content.includes('panel data') || content.includes('causal inference') ||
+      content.includes('regression model')) {
+    return '计量经济学';
+  }
+  if (content.includes('machine learning') || content.includes('quantitative trading') ||
+      content.includes('algorithmic trading') || content.includes('deep learning finance')) {
+    return '金融机器学习';
+  }
+  if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
+      content.includes('market anomaly') || content.includes('investor behavior')) {
+    return '行为金融';
+  }
+  if (content.includes('catastrophe insurance') || content.includes('reinsurance') ||
+      content.includes('climate risk') || content.includes('disaster risk')) {
+    return '巨灾保险';
+  }
+  if (content.includes('agricultural insurance') || content.includes('crop insurance') ||
+      content.includes('weather index')) {
+    return '农业保险';
+  }
+  if (content.includes('financial inclusion') || content.includes('microfinance') ||
+      content.includes('digital finance') || content.includes('rural finance')) {
+    return '普惠金融';
+  }
+
+  return '计量经济学';
+}
+
+function guessSubcategory(title, abstract, category) {
+  const content = (title + ' ' + abstract).toLowerCase();
+
+  if (category === '计量经济学') {
+    if (content.includes('time series') || content.includes('garch')) return '时间序列';
+    if (content.includes('panel data')) return '面板数据';
+    if (content.includes('causal') || content.includes('instrument')) return '因果推断';
+    return '其他';
+  }
+  if (category === '金融机器学习') {
+    if (content.includes('trading') || content.includes('algorithmic')) return '量化交易';
+    if (content.includes('risk') || content.includes('prediction')) return '风险预测';
+    if (content.includes('portfolio') || content.includes('asset pricing')) return '资产定价';
+    if (content.includes('deep learning') || content.includes('neural')) return '深度学习';
+    return '其他';
+  }
+  if (category === '行为金融') {
+    if (content.includes('trading')) return '金融科技';
+    if (content.includes('asset pricing') || content.includes('factor')) return '行为资产定价';
+    if (content.includes('anomaly') || content.includes('momentum')) return '市场异象';
+    if (content.includes('investor') || content.includes('sentiment')) return '投资者行为';
+    return '其他';
+  }
+  if (category === '巨灾保险') {
+    if (content.includes('climate') || content.includes('risk modeling')) return '气候风险建模';
+    if (content.includes('reinsurance')) return '再保险';
+    if (content.includes('earthquake')) return '地震保险';
+    if (content.includes('flood') || content.includes('hurricane')) return '洪水/飓风保险';
+    return '其他';
+  }
+  if (category === '农业保险') {
+    if (content.includes('credit') || content.includes('loan')) return '农业信贷';
+    if (content.includes('weather index')) return '天气指数保险';
+    if (content.includes('crop')) return '农作物保险';
+    return '其他';
+  }
+  if (category === '普惠金融') {
+    if (content.includes('digital')) return '数字普惠金融';
+    if (content.includes('rural credit')) return '农村信贷';
+    if (content.includes('microfinance')) return '小微金融';
+    return '其他';
+  }
+  return '其他';
+}
+
+function extractTags(title, abstract) {
+  const content = (title + ' ' + abstract).toLowerCase();
+  const tags = [];
+
+  const keywords = [
+    'machine learning', 'deep learning', 'neural network',
+    'behavioral finance', 'sentiment', 'market anomaly',
+    'risk management', 'insurance', 'climate risk',
+    'agricultural', 'crop insurance', 'weather index',
+    'financial inclusion', 'microfinance', 'digital finance',
+    'econometrics', 'panel data', 'causal inference'
+  ];
+
+  keywords.forEach(kw => {
+    if (content.includes(kw)) {
+      const tag = kw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      if (!tags.includes(tag)) tags.push(tag);
+    }
+  });
+
+  return tags.slice(0, 5);
+}
+
+// ============ 对外接口 ============
+
 async function getPapers({ category, subcategory, keyword, page, limit, sort }) {
   const allPapers = await getAllPapers();
 
@@ -35,7 +309,6 @@ async function getPapers({ category, subcategory, keyword, page, limit, sort }) 
     );
   }
 
-  // 排序
   if (sort === 'cited') {
     filtered.sort((a, b) => (b.citations || 0) - (a.citations || 0));
   } else {
@@ -45,20 +318,13 @@ async function getPapers({ category, subcategory, keyword, page, limit, sort }) 
   const total = filtered.length;
   const start = (page - 1) * limit;
   const end = start + limit;
-  const papers = filtered.slice(start, end);
 
   return {
-    papers,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
-    }
+    papers: filtered.slice(start, end),
+    pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
   };
 }
 
-// 获取所有论文（从 OpenAlex + Firecrawl）
 async function getAllPapers(forceRefresh = false) {
   const now = Date.now();
 
@@ -66,9 +332,9 @@ async function getAllPapers(forceRefresh = false) {
     return cachedPapers;
   }
 
-  console.log('[PaperService] Fetching papers from OpenAlex + Firecrawl...');
+  console.log('[PaperService] Fetching papers from OpenAlex...');
 
-  // 计算上周日期范围
+  // 计算日期范围
   const today = new Date();
   const lastWeekEnd = new Date(today);
   lastWeekEnd.setDate(today.getDate() - today.getDay() - 6);
@@ -77,40 +343,66 @@ async function getAllPapers(forceRefresh = false) {
   const dateFrom = lastWeekStart.toISOString().split('T')[0];
   const dateTo = lastWeekEnd.toISOString().split('T')[0];
 
-  let allPapers = [];
+  console.log(`[PaperService] Date range: ${dateFrom} to ${dateTo}`);
 
+  const allPapers = [];
+
+  // 1. OpenAlex 六大分类
   for (const cat of CATEGORIES) {
     try {
-      const oaPapers = await openalex.getPapersByTopic(cat, 5, { dateFrom, dateTo });
-      const fcPapers = await firecrawlSearch(cat, 3, { dateFrom, dateTo });
-      allPapers.push(...oaPapers, ...fcPapers);
-      console.log(`[PaperService] ${cat}: OA=${oaPapers.length}, FC=${fcPapers.length}`);
+      const papers = await fetchFromOpenAlex(cat, { dateFrom, dateTo, limit: 5 });
+      allPapers.push(...papers);
+      console.log(`[PaperService] ${cat}: ${papers.length} papers`);
     } catch (e) {
       console.log(`[PaperService] ${cat} error:`, e.message);
     }
   }
 
+  // 2. NBER (via OpenAlex)
+  try {
+    const nberPapers = await fetchFromNBER({ dateFrom, dateTo, limit: 3 });
+    allPapers.push(...nberPapers);
+    console.log(`[PaperService] NBER: ${nberPapers.length} papers`);
+  } catch (e) {
+    console.log(`[PaperService] NBER error:`, e.message);
+  }
+
+  // 3. arXiv (via OpenAlex)
+  try {
+    const arxivPapers = await fetchFromArxiv({ dateFrom, dateTo, limit: 3 });
+    allPapers.push(...arxivPapers);
+    console.log(`[PaperService] arXiv: ${arxivPapers.length} papers`);
+  } catch (e) {
+    console.log(`[PaperService] arXiv error:`, e.message);
+  }
+
   // 过滤未来日期
   const todayStr = today.toISOString().split('T')[0];
-  allPapers = allPapers.filter(p => !p.date || p.date <= todayStr);
+  const filtered = allPapers.filter(p => !p.date || p.date <= todayStr);
 
   // 按日期排序
-  allPapers.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  filtered.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-  cachedPapers = allPapers;
+  // 去重（基于 ID）
+  const seen = new Set();
+  const unique = filtered.filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+
+  cachedPapers = unique;
   lastFetchTime = now;
-  console.log(`[PaperService] Total: ${cachedPapers.length} papers`);
+  console.log(`[PaperService] Total: ${cachedPapers.length} unique papers`);
 
   return cachedPapers;
 }
 
-// 获取论文详情
 async function getPaperById(id) {
   const allPapers = await getAllPapers();
   const paper = allPapers.find(p => p.id == id);
   if (!paper) return null;
 
-  // 获取相关论文
   const relatedPapers = allPapers
     .filter(p => p.id != id && p.category === paper.category)
     .slice(0, 5);
@@ -118,12 +410,10 @@ async function getPaperById(id) {
   return { ...paper, relatedPapers };
 }
 
-// 搜索论文
 async function searchPapers(query, { page, limit }) {
   return getPapers({ keyword: query, page, limit, sort: 'latest' });
 }
 
-// 获取热门论文
 async function getHotPapers(category, limit = 10) {
   const allPapers = await getAllPapers();
   let filtered = [...allPapers];
@@ -137,7 +427,6 @@ async function getHotPapers(category, limit = 10) {
     .slice(0, limit);
 }
 
-// 获取标签列表
 async function getTags(category, limit = 50) {
   const allPapers = await getAllPapers();
   const tagCount = {};
@@ -158,7 +447,6 @@ async function getTags(category, limit = 50) {
     .map(([name, count]) => ({ name, count }));
 }
 
-// 获取论文统计
 async function getPaperStats() {
   const allPapers = await getAllPapers();
   const byCategory = {};
@@ -174,7 +462,7 @@ async function getPaperStats() {
   };
 }
 
-// 以下方法暂不支持（需要数据库）
+// 兼容旧接口
 async function addPaper() { return null; }
 async function updatePaper() { return null; }
 async function deletePaper() { return false; }
