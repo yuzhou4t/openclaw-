@@ -23,7 +23,9 @@ const SOURCE_FILTERS = {
   // NBER 机构 ID
   nber: 'institutions.id:I130769515',
   // arXiv 来源 ID
-  arxiv: 'locations.source.id:S4306400194'
+  arxiv: 'locations.source.id:S4306400194',
+  // SSRN 来源 ID
+  ssrn: 'locations.source.id:S4306401271'
 };
 
 // 缓存
@@ -37,7 +39,7 @@ const CATEGORIES = Object.keys(CATEGORY_QUERIES);
  * 从 OpenAlex 获取论文
  */
 async function fetchFromOpenAlex(category, options = {}) {
-  const { dateFrom, dateTo, limit = 5 } = options;
+  const { dateFrom, dateTo, limit = 10 } = options;
   const query = CATEGORY_QUERIES[category] || category;
 
   try {
@@ -47,14 +49,14 @@ async function fetchFromOpenAlex(category, options = {}) {
       sort: 'publication_date:desc'
     };
 
+    // 构建过滤参数：has_fulltext:true 确保有全文
+    const filters = ['has_fulltext:true'];
+
     // 添加日期过滤
-    if (dateFrom || dateTo) {
-      let dateFilter = '';
-      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
-      if (dateFrom && dateTo) dateFilter += ',';
-      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
-      params.filter = dateFilter;
-    }
+    if (dateFrom) filters.push(`from_publication_date:${dateFrom}`);
+    if (dateTo) filters.push(`to_publication_date:${dateTo}`);
+
+    params.filter = filters.join(',');
 
     const r = await axios.get(`${OPENALEX_BASE}/works`, {
       params,
@@ -72,22 +74,18 @@ async function fetchFromOpenAlex(category, options = {}) {
  * 从 NBER (via OpenAlex) 获取论文
  */
 async function fetchFromNBER(options = {}) {
-  const { dateFrom, dateTo, limit = 3 } = options;
+  const { dateFrom, dateTo, limit = 5 } = options;
 
   try {
+    const filters = [SOURCE_FILTERS.nber, 'has_fulltext:true'];
+    if (dateFrom) filters.push(`from_publication_date:${dateFrom}`);
+    if (dateTo) filters.push(`to_publication_date:${dateTo}`);
+
     const params = {
-      filter: SOURCE_FILTERS.nber,
+      filter: filters.join(','),
       'per-page': limit,
       sort: 'publication_date:desc'
     };
-
-    if (dateFrom || dateTo) {
-      let dateFilter = '';
-      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
-      if (dateFrom && dateTo) dateFilter += ',';
-      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
-      params.filter += `,${dateFilter}`;
-    }
 
     const r = await axios.get(`${OPENALEX_BASE}/works`, {
       params,
@@ -109,22 +107,18 @@ async function fetchFromNBER(options = {}) {
  * 从 arXiv (via OpenAlex) 获取论文
  */
 async function fetchFromArxiv(options = {}) {
-  const { dateFrom, dateTo, limit = 3 } = options;
+  const { dateFrom, dateTo, limit = 5 } = options;
 
   try {
+    const filters = [SOURCE_FILTERS.arxiv, 'has_fulltext:true'];
+    if (dateFrom) filters.push(`from_publication_date:${dateFrom}`);
+    if (dateTo) filters.push(`to_publication_date:${dateTo}`);
+
     const params = {
-      filter: SOURCE_FILTERS.arxiv,
+      filter: filters.join(','),
       'per-page': limit,
       sort: 'publication_date:desc'
     };
-
-    if (dateFrom || dateTo) {
-      let dateFilter = '';
-      if (dateFrom) dateFilter += `from_publication_date:${dateFrom}`;
-      if (dateFrom && dateTo) dateFilter += ',';
-      if (dateTo) dateFilter += `to_publication_date:${dateTo}`;
-      params.filter += `,${dateFilter}`;
-    }
 
     const r = await axios.get(`${OPENALEX_BASE}/works`, {
       params,
@@ -138,6 +132,39 @@ async function fetchFromArxiv(options = {}) {
     }));
   } catch (error) {
     console.error('arXiv fetch error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 从 SSRN (via OpenAlex) 获取论文
+ */
+async function fetchFromSSRN(options = {}) {
+  const { dateFrom, dateTo, limit = 5 } = options;
+
+  try {
+    const filters = [SOURCE_FILTERS.ssrn, 'has_fulltext:true'];
+    if (dateFrom) filters.push(`from_publication_date:${dateFrom}`);
+    if (dateTo) filters.push(`to_publication_date:${dateTo}`);
+
+    const params = {
+      filter: filters.join(','),
+      'per-page': limit,
+      sort: 'publication_date:desc'
+    };
+
+    const r = await axios.get(`${OPENALEX_BASE}/works`, {
+      params,
+      timeout: 15000
+    });
+
+    return r.data.results.map(w => ({
+      ...transformOpenAlexPaper(w),
+      source: 'SSRN',
+      category: guessCategory(w.title, w.abstract_inverted_index ? invertAbstract(w.abstract_inverted_index) : '')
+    }));
+  } catch (error) {
+    console.error('SSRN fetch error:', error.message);
     return [];
   }
 }
@@ -347,10 +374,10 @@ async function getAllPapers(forceRefresh = false) {
 
   const allPapers = [];
 
-  // 1. OpenAlex 六大分类
+  // 1. OpenAlex 六大分类 (每次取 10 篇)
   for (const cat of CATEGORIES) {
     try {
-      const papers = await fetchFromOpenAlex(cat, { dateFrom, dateTo, limit: 5 });
+      const papers = await fetchFromOpenAlex(cat, { dateFrom, dateTo, limit: 10 });
       allPapers.push(...papers);
       console.log(`[PaperService] ${cat}: ${papers.length} papers`);
     } catch (e) {
@@ -369,11 +396,20 @@ async function getAllPapers(forceRefresh = false) {
 
   // 3. arXiv (via OpenAlex)
   try {
-    const arxivPapers = await fetchFromArxiv({ dateFrom, dateTo, limit: 3 });
+    const arxivPapers = await fetchFromArxiv({ dateFrom, dateTo, limit: 5 });
     allPapers.push(...arxivPapers);
     console.log(`[PaperService] arXiv: ${arxivPapers.length} papers`);
   } catch (e) {
     console.log(`[PaperService] arXiv error:`, e.message);
+  }
+
+  // 4. SSRN (via OpenAlex)
+  try {
+    const ssrnPapers = await fetchFromSSRN({ dateFrom, dateTo, limit: 5 });
+    allPapers.push(...ssrnPapers);
+    console.log(`[PaperService] SSRN: ${ssrnPapers.length} papers`);
+  } catch (e) {
+    console.log(`[PaperService] SSRN error:`, e.message);
   }
 
   // 过滤未来日期
