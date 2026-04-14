@@ -329,6 +329,9 @@ function extractTags(title, abstract) {
   return tags.slice(0, 5);
 }
 
+// 轻量爬虫
+const { scrapeZhouGuofu, scrapeAFAJOF } = require('../../lib/scrapers');
+
 // ============ 对外接口 ============
 
 async function getPapers({ category, subcategory, keyword, page, limit, sort }) {
@@ -427,6 +430,54 @@ async function getAllPapers(forceRefresh = false) {
     console.log(`[PaperService] SSRN: ${ssrnPapers.length} papers`);
   } catch (e) {
     console.log(`[PaperService] SSRN error:`, e.message);
+  }
+
+  // 5. 周国富老师主页（行为金融/资产定价补充源）
+  try {
+    const zhouPapers = await scrapeZhouGuofu();
+    const normalized = zhouPapers.map(p => ({
+      id: 'zhou_' + Buffer.from(p.url).toString('base64').replace(/[/+=]/g, '').slice(0, 16),
+      title: p.title,
+      authors: [],
+      source: p.source,
+      date: p.date || dateTo,
+      abstract: '',
+      category: guessCategory(p.title, ''),
+      subcategory: '其他',
+      tags: [],
+      citations: 0,
+      pdfUrl: null,
+      url: p.url,
+      openalexId: null
+    }));
+    allPapers.push(...normalized);
+    console.log(`[PaperService] ZhouGuofu: ${normalized.length} papers`);
+  } catch (e) {
+    console.log(`[PaperService] ZhouGuofu error:`, e.message);
+  }
+
+  // 6. AFAJOF forthcoming
+  try {
+    const afajofPapers = await scrapeAFAJOF();
+    const normalized = afajofPapers.map(p => ({
+      id: 'afajof_' + Buffer.from(p.url || p.title).toString('base64').replace(/[/+=]/g, '').slice(0, 16),
+      title: p.title,
+      authors: [],
+      source: p.source,
+      date: p.date || dateTo,
+      abstract: '',
+      category: guessCategory(p.title, ''),
+      subcategory: '其他',
+      tags: [],
+      citations: 0,
+      pdfUrl: null,
+      url: p.url || '',
+      openalexId: null
+    }));
+    allPapers.push(...normalized);
+    console.log(`[PaperService] AFAJOF: ${normalized.length} papers`);
+  } catch (e) {
+    console.log(`[PaperService] AFAJOF error:`, e.message);
   }
 
   // 过滤未来日期
