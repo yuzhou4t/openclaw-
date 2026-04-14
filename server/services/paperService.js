@@ -8,14 +8,15 @@ const axios = require('axios');
 // OpenAlex API
 const OPENALEX_BASE = 'https://api.openalex.org';
 
-// 六大分类的 OpenAlex 搜索关键词
+// 六大分类的 OpenAlex 搜索关键词（已优化）
+// 策略：垂直领域用精确领域词，计量经济学用方法论词
 const CATEGORY_QUERIES = {
-  '计量经济学': 'econometrics time series panel data causal inference regression',
-  '金融机器学习': 'machine learning quantitative trading algorithmic trading deep learning finance',
-  '行为金融': 'behavioral finance investor sentiment market anomaly investor behavior',
-  '巨灾保险': 'catastrophe insurance climate risk disaster reinsurance hurricane earthquake',
-  '农业保险': 'agricultural insurance crop insurance weather index farm rural',
-  '普惠金融': 'financial inclusion microfinance digital finance rural inclusive'
+  '计量经济学': 'econometrics panel data causal inference regression structural estimation garch time series var',
+  '金融机器学习': 'quantitative trading algorithmic trading fintech large language model artificial intelligence finance prediction model',
+  '行为金融': 'behavioral finance investor sentiment prospect theory cognitive bias household finance asset pricing anomaly market sentiment',
+  '巨灾保险': 'climate risk flood drought hurricane earthquake reinsurance climate change disaster risk catastrophe modeling wildfire',
+  '农业保险': 'agricultural insurance crop insurance index-based insurance weather index livestock farming agricultural risk smallholder',
+  '普惠金融': 'financial inclusion digital finance microfinance mobile banking rural development inclusive finance mobile money'
 };
 
 // OpenAlex 机构/来源过滤
@@ -212,35 +213,51 @@ function invertAbstract(invertedIndex) {
   return words.join(' ');
 }
 
+// 分类关键词映射（用于智能分类）
+// 策略：垂直领域关键词更具体，减少通用方法论词汇的干扰
+const CATEGORY_KEYWORDS = {
+  '计量经济学': ['panel data', 'garch', 'var model', 'structural estimation', 'econometric model', 'time series analysis', 'causal inference', 'regression analysis', 'instrumental variable', 'difference-in-differences'],
+  '金融机器学习': ['machine learning', 'deep learning', 'quantitative trading', 'algorithmic trading', 'large language model', 'fintech', 'neural network', 'artificial intelligence', 'natural language processing', 'llm', 'gpt', 'transformer model', 'reinforcement learning', 'prediction model'],
+  '行为金融': ['behavioral finance', 'investor sentiment', 'prospect theory', 'cognitive bias', 'household finance', 'asset pricing anomaly', 'market anomaly', 'investor behavior', 'overconfidence', 'loss aversion', 'emotion', 'sentiment analysis', 'market sentiment', 'investor psychology', 'behavioral economics', 'herding', 'noise trading'],
+  '巨灾保险': ['catastrophe insurance', 'disaster risk', 'climate risk', 'flood insurance', 'hurricane', 'earthquake insurance', 'reinsurance', 'catastrophe risk', 'risk modeling', 'catastrophe model', 'extreme weather', 'drought', 'wildfire', 'climate change adaptation'],
+  '农业保险': ['agricultural insurance', 'crop insurance', 'index-based insurance', 'weather index', 'livestock insurance', 'agricultural risk', 'farming', 'farm insurance', 'agri risk', 'smallholder farmer', 'agricultural credit', 'crop yield'],
+  '普惠金融': ['financial inclusion', 'digital finance', 'microfinance', 'financial accessibility', 'mobile banking', 'rural development', 'inclusive finance', 'financial exclusion', 'digital financial inclusion', 'mobile money', 'financial literacy']
+};
+
+/**
+ * 智能分类：根据关键词匹配度自动归类
+ * 策略：垂直领域优先（任何非计量经济学关键词匹配都优先），
+ * 计量经济学仅在有强烈方法论指向时使用
+ */
 function guessCategory(title, abstract) {
   const content = (title + ' ' + abstract).toLowerCase();
 
-  if (content.includes('econometric') || content.includes('time series') ||
-      content.includes('panel data') || content.includes('causal inference') ||
-      content.includes('regression model')) {
-    return '计量经济学';
-  }
-  if (content.includes('machine learning') || content.includes('quantitative trading') ||
-      content.includes('algorithmic trading') || content.includes('deep learning finance')) {
-    return '金融机器学习';
-  }
-  if (content.includes('behavioral finance') || content.includes('investor sentiment') ||
-      content.includes('market anomaly') || content.includes('investor behavior')) {
-    return '行为金融';
-  }
-  if (content.includes('catastrophe insurance') || content.includes('reinsurance') ||
-      content.includes('climate risk') || content.includes('disaster risk')) {
-    return '巨灾保险';
-  }
-  if (content.includes('agricultural insurance') || content.includes('crop insurance') ||
-      content.includes('weather index')) {
-    return '农业保险';
-  }
-  if (content.includes('financial inclusion') || content.includes('microfinance') ||
-      content.includes('digital finance') || content.includes('rural finance')) {
-    return '普惠金融';
+  // 先计算每个分类的匹配分数
+  const scores = {};
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    scores[category] = 0;
+    for (const kw of keywords) {
+      if (content.includes(kw.toLowerCase())) {
+        scores[category]++;
+      }
+    }
   }
 
+  // 策略：任何垂直领域（金融ML/行为金融/巨灾保险/农业保险/普惠金融）有匹配
+  // 就优先使用该分类，不再与计量经济学比较分数
+  const verticalCategories = ['金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
+  for (const cat of verticalCategories) {
+    if (scores[cat] > 0) {
+      return cat;
+    }
+  }
+
+  // 如果没有垂直领域匹配，看计量经济学
+  if (scores['计量经济学'] > 0) {
+    return '计量经济学';
+  }
+
+  // 如果没有任何匹配，默认计量经济学
   return '计量经济学';
 }
 
