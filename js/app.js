@@ -60,6 +60,16 @@ let state = {
   readingList: new Set()
 };
 
+const PDF_STATUS = {
+  UNKNOWN: 'unknown',
+  AVAILABLE: 'available',
+  UNAVAILABLE: 'unavailable'
+};
+
+const pdfAvailabilityCache = new Map();
+const pdfAvailabilityPending = new Map();
+let currentDetailPaperId = null;
+
 // ===================================
 // DOM Elements
 // ===================================
@@ -114,6 +124,18 @@ function formatDate(dateStr) {
     month: "short",
     day: "numeric"
   });
+}
+
+function normalizePaperId(id) {
+  return String(id);
+}
+
+function isSamePaperId(a, b) {
+  return normalizePaperId(a) === normalizePaperId(b);
+}
+
+function getPaperIdAttr(id) {
+  return encodeURIComponent(normalizePaperId(id));
 }
 
 function generateTagCloud() {
@@ -207,7 +229,7 @@ function renderPapers(papers) {
   }
 
   elements.paperList.innerHTML = papers.map(paper => `
-    <article class="paper-card">
+    <article class="paper-card" data-paper-id="${getPaperIdAttr(paper.id)}">
       <div class="paper-header">
         <h2 class="paper-title" onclick="viewPaper('${paper.id}')">${paper.title}</h2>
       </div>
@@ -233,10 +255,7 @@ function renderPapers(papers) {
         </div>
         <div class="paper-links">
           <a href="#" class="paper-link paper-link-secondary" onclick="viewPaper('${paper.id}')">详情</a>
-          ${paper.pdfUrl ?
-            `<a href="#" class="paper-link paper-link-primary" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>` :
-            `<a href="#" class="paper-link paper-link-disabled" title="暂无可用PDF" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>`
-          }
+          ${renderPaperPdfLink(paper)}
         </div>
       </div>
       ${paper.url ? `<div class="paper-url"><a href="${paper.url}" target="_blank">${paper.url}</a></div>` : ''}
@@ -431,7 +450,7 @@ function toggleReadingList(id) {
 
 async function viewPaper(id) {
   // 先从本地数据查找
-  let paper = papersData.find(p => p.id === id);
+  let paper = papersData.find(p => isSamePaperId(p.id, id));
 
   // 如果本地没有，从 API 获取
   if (!paper) {
@@ -462,6 +481,8 @@ async function viewPaper(id) {
 
   if (!paper) return;
 
+  currentDetailPaperId = normalizePaperId(paper.id);
+
   // 标记已读
   markPushAsRead(id);
 
@@ -488,24 +509,8 @@ async function viewPaper(id) {
         <span>${formatDate(paper.date)}</span>
       </div>
       <div class="paper-detail-actions">
-        ${paper.pdfUrl ? `
-        <button class="paper-detail-action primary" onclick="openPdfViewer(${paper.id})">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-          </svg>
-          查看 PDF
-        </button>
-        ` : `
-        <button class="paper-detail-action secondary" onclick="openPdfViewer(${paper.id})">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-          </svg>
-          请求 PDF
-        </button>
-        `}
-        <button class="paper-detail-action secondary" onclick="exportCitation(${paper.id})">
+        ${buildPaperDetailPdfAction(paper)}
+        <button class="paper-detail-action secondary" onclick='exportCitation(${JSON.stringify(paper.id)})'>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
             <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
@@ -513,13 +518,13 @@ async function viewPaper(id) {
           导出引用
         </button>
         <button class="paper-detail-action secondary ${state.readingList.has(paper.id) ? 'active' : ''}"
-                onclick="toggleReadingList(${paper.id}); viewPaper(${paper.id});">
+                onclick='toggleReadingList(${JSON.stringify(paper.id)}); viewPaper(${JSON.stringify(paper.id)});'>
           <svg viewBox="0 0 24 24" fill="${state.readingList.has(paper.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
             <path d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"></path>
           </svg>
           ${state.readingList.has(paper.id) ? '已加入' : '待读'}
         </button>
-        <button class="paper-detail-action secondary" onclick="sharePaper(${paper.id})">
+        <button class="paper-detail-action secondary" onclick='sharePaper(${JSON.stringify(paper.id)})'>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="18" cy="5" r="3"></circle>
             <circle cx="6" cy="12" r="3"></circle>
@@ -617,12 +622,13 @@ function closePaperModal() {
   const modal = document.getElementById("paperModal");
   modal.classList.remove("active");
   document.body.style.overflow = "";
+  currentDetailPaperId = null;
 }
 
 // 获取相关论文
 function getRelatedPapers(paper) {
   return papersData
-    .filter(p => p.id !== paper.id)
+    .filter(p => !isSamePaperId(p.id, paper.id))
     .filter(p =>
       p.category === paper.category ||
       p.tags.some(t => paper.tags.includes(t))
@@ -642,11 +648,11 @@ function getDaysSincePublish(dateStr) {
 
 // 分享论文
 function sharePaper(id) {
-  const paper = papersData.find(p => p.id === id);
+  const paper = papersData.find(p => isSamePaperId(p.id, id));
   if (!paper) return;
 
   // 复制链接到剪贴板
-  const shareUrl = `${window.location.origin}/paper/${id}`;
+  const shareUrl = `${window.location.origin}/paper/${encodeURIComponent(id)}`;
   navigator.clipboard.writeText(shareUrl).then(() => {
     alert("链接已复制到剪贴板");
   });
@@ -851,7 +857,7 @@ function formatCitation(paper, style) {
 
 // 打开引用导出弹窗
 function exportCitation(id) {
-  const paper = papersData.find(p => p.id === id);
+  const paper = papersData.find(p => isSamePaperId(p.id, id));
   if (!paper) return;
 
   let currentStyle = 'apa';
@@ -977,85 +983,315 @@ function closeCitationModal() {
 
 let currentPdfPaper = null;
 
+function getPdfStatusFromCache(pdfUrl) {
+  if (!pdfUrl) return PDF_STATUS.UNAVAILABLE;
+  const cached = pdfAvailabilityCache.get(pdfUrl);
+  return cached?.status || PDF_STATUS.UNKNOWN;
+}
+
+function getPaperPdfStatus(paper) {
+  if (!paper || !paper.pdfUrl) return PDF_STATUS.UNAVAILABLE;
+  return getPdfStatusFromCache(paper.pdfUrl);
+}
+
+function buildPaperDetailPdfAction(paper) {
+  const actionSvg = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+  `;
+  const openPdfAction = `openPdfViewer(${JSON.stringify(paper.id)})`;
+  const pdfStatus = getPaperPdfStatus(paper);
+
+  if (!paper.pdfUrl) {
+    return `
+      <button id="paperDetailPdfAction" class="paper-detail-action secondary" onclick='${openPdfAction}'>
+        ${actionSvg}
+        请求 PDF
+      </button>
+    `;
+  }
+
+  if (pdfStatus === PDF_STATUS.UNAVAILABLE) {
+    return `
+      <button id="paperDetailPdfAction" class="paper-detail-action secondary" disabled title="PDF链接不可用">
+        ${actionSvg}
+        PDF 不可用
+      </button>
+    `;
+  }
+
+  return `
+    <button id="paperDetailPdfAction" class="paper-detail-action primary" onclick='${openPdfAction}'>
+      ${actionSvg}
+      查看 PDF
+    </button>
+  `;
+}
+
+function renderPaperPdfLink(paper) {
+  const paperIdAttr = getPaperIdAttr(paper.id);
+  const openAction = `event.preventDefault(); openPdfViewer(${JSON.stringify(paper.id)});`;
+  const pdfStatus = getPaperPdfStatus(paper);
+
+  if (!paper.pdfUrl) {
+    return `<a href="#" class="paper-link paper-link-disabled" data-role="paper-pdf-link" data-paper-id="${paperIdAttr}" title="暂无可用PDF" onclick='${openAction}'>PDF</a>`;
+  }
+
+  if (pdfStatus === PDF_STATUS.UNAVAILABLE) {
+    return `<a href="#" class="paper-link paper-link-disabled" data-role="paper-pdf-link" data-paper-id="${paperIdAttr}" title="PDF链接不可用" aria-disabled="true" onclick="event.preventDefault(); return false;">PDF</a>`;
+  }
+
+  return `<a href="#" class="paper-link paper-link-primary" data-role="paper-pdf-link" data-paper-id="${paperIdAttr}" onclick='${openAction}'>PDF</a>`;
+}
+
+function updatePaperCardPdfButton(paper) {
+  return renderPaperPdfLink(paper);
+}
+
+function refreshPdfButtonsForPaper(paper) {
+  const paperIdAttr = getPaperIdAttr(paper.id);
+  const cardPdfBtn = document.querySelector(`[data-role="paper-pdf-link"][data-paper-id="${paperIdAttr}"]`);
+  if (cardPdfBtn) {
+    cardPdfBtn.outerHTML = updatePaperCardPdfButton(paper);
+  }
+
+  if (currentDetailPaperId && isSamePaperId(currentDetailPaperId, paper.id)) {
+    const detailPdfBtn = document.getElementById("paperDetailPdfAction");
+    if (detailPdfBtn) {
+      detailPdfBtn.outerHTML = buildPaperDetailPdfAction(paper);
+    }
+  }
+}
+
+function getPaperPageUrl(paper) {
+  let paperPageUrl = paper.url;
+
+  if (paperPageUrl && paperPageUrl.includes('.pdf')) {
+    if (paperPageUrl.includes('ssrn.com')) {
+      const match = paperPageUrl.match(/abstract_id=(\d+)/);
+      if (match) {
+        paperPageUrl = `https://papers.ssrn.com/sol3/papers.cfm?abstract_id=${match[1]}`;
+      }
+    }
+    if (paperPageUrl.includes('nber.org')) {
+      const match = paperPageUrl.match(/w(\d+)/);
+      if (match) {
+        paperPageUrl = `https://www.nber.org/papers/w${match[1]}`;
+      }
+    }
+  }
+
+  return paperPageUrl;
+}
+
+function setPdfModalActionButtons({
+  showDownload = false,
+  showOpen = false,
+  openHref = "#",
+  disableDownload = false,
+  disableOpen = false
+}) {
+  const pdfDownloadBtn = document.getElementById("pdfDownloadBtn");
+  const pdfOpenBtn = document.getElementById("pdfOpenBtn");
+
+  pdfDownloadBtn.style.display = showDownload ? 'flex' : 'none';
+  pdfOpenBtn.style.display = showOpen ? 'flex' : 'none';
+
+  pdfDownloadBtn.disabled = disableDownload;
+  pdfDownloadBtn.classList.toggle('disabled', disableDownload);
+
+  pdfOpenBtn.classList.toggle('disabled', disableOpen);
+  if (disableOpen) {
+    pdfOpenBtn.setAttribute('aria-disabled', 'true');
+    pdfOpenBtn.href = '#';
+  } else {
+    pdfOpenBtn.removeAttribute('aria-disabled');
+    pdfOpenBtn.href = openHref;
+  }
+}
+
+function setPdfAlternativeButtons(paperPageUrl) {
+  const pdfNoSource = document.getElementById("pdfNoSource");
+  const altBtns = pdfNoSource.querySelectorAll('.pdf-alt-btn');
+  const alternatives = pdfNoSource.querySelector('.pdf-alternatives');
+
+  if (!altBtns.length || !alternatives) return;
+
+  altBtns[0].onclick = searchPaperOnline;
+  altBtns[0].innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="11" cy="11" r="8"></circle>
+    <path d="M21 21l-4.35-4.35"></path>
+  </svg>百度学术搜索`;
+
+  if (paperPageUrl) {
+    altBtns[0].onclick = () => window.open(paperPageUrl, '_blank');
+    altBtns[0].innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+      <polyline points="15 3 21 3 21 9"></polyline>
+      <line x1="10" y1="14" x2="21" y2="3"></line>
+    </svg>查看论文页面`;
+  }
+
+  alternatives.style.display = 'flex';
+}
+
+function showPdfNoSource(paper, titleText, descText, disableActions = false) {
+  const pdfViewer = document.getElementById("pdfViewer");
+  const pdfViewerContainer = document.getElementById("pdfViewerContainer");
+  const pdfNoSource = document.getElementById("pdfNoSource");
+  const titleEl = pdfNoSource.querySelector('h4');
+  const descEl = pdfNoSource.querySelector('p');
+
+  pdfViewer.src = "";
+  pdfViewerContainer.style.display = 'none';
+  pdfNoSource.style.display = 'flex';
+
+  if (titleEl) titleEl.textContent = titleText;
+  if (descEl) descEl.textContent = descText;
+
+  if (paper?.pdfUrl && disableActions) {
+    setPdfModalActionButtons({
+      showDownload: true,
+      showOpen: true,
+      disableDownload: true,
+      disableOpen: true
+    });
+  } else {
+    setPdfModalActionButtons({ showDownload: false, showOpen: false });
+  }
+
+  setPdfAlternativeButtons(getPaperPageUrl(paper));
+}
+
+function showPdfCheckingState() {
+  const pdfNoSource = document.getElementById("pdfNoSource");
+  const titleEl = pdfNoSource.querySelector('h4');
+  const descEl = pdfNoSource.querySelector('p');
+  const alternatives = pdfNoSource.querySelector('.pdf-alternatives');
+  const pdfViewer = document.getElementById("pdfViewer");
+  const pdfViewerContainer = document.getElementById("pdfViewerContainer");
+
+  pdfViewer.src = "";
+  pdfViewerContainer.style.display = 'none';
+  pdfNoSource.style.display = 'flex';
+  if (titleEl) titleEl.textContent = '正在检测 PDF 可用性';
+  if (descEl) descEl.textContent = '请稍候，我们正在确认该链接是否可访问。';
+  if (alternatives) alternatives.style.display = 'none';
+  setPdfModalActionButtons({ showDownload: true, showOpen: true, disableDownload: true, disableOpen: true });
+}
+
+function showPdfPreview(paper) {
+  const pdfViewer = document.getElementById("pdfViewer");
+  const pdfViewerContainer = document.getElementById("pdfViewerContainer");
+  const pdfNoSource = document.getElementById("pdfNoSource");
+
+  pdfViewerContainer.style.display = 'block';
+  pdfNoSource.style.display = 'none';
+
+  const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(paper.pdfUrl)}&embedded=true`;
+  pdfViewer.src = viewerUrl;
+
+  setPdfModalActionButtons({
+    showDownload: true,
+    showOpen: true,
+    openHref: paper.pdfUrl,
+    disableDownload: false,
+    disableOpen: false
+  });
+}
+
+async function fetchPdfAvailability(pdfUrl) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/proxy?url=${encodeURIComponent(pdfUrl)}`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    if (response.body && typeof response.body.cancel === 'function') {
+      response.body.cancel();
+    }
+
+    if (!response.ok) {
+      return { status: PDF_STATUS.UNAVAILABLE, reason: `http_${response.status}` };
+    }
+
+    return { status: PDF_STATUS.AVAILABLE };
+  } catch (error) {
+    console.warn('PDF可用性检测失败:', error);
+    return { status: PDF_STATUS.UNAVAILABLE, reason: 'check_failed' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function ensurePdfAvailability(pdfUrl, { force = false } = {}) {
+  if (!pdfUrl) return { status: PDF_STATUS.UNAVAILABLE, reason: 'missing_url' };
+
+  const cached = pdfAvailabilityCache.get(pdfUrl);
+  if (!force && cached) {
+    return cached;
+  }
+
+  if (pdfAvailabilityPending.has(pdfUrl)) {
+    return pdfAvailabilityPending.get(pdfUrl);
+  }
+
+  const pendingPromise = (async () => {
+    const result = await fetchPdfAvailability(pdfUrl);
+    if (result.status === PDF_STATUS.UNKNOWN) {
+      pdfAvailabilityCache.delete(pdfUrl);
+    } else {
+      pdfAvailabilityCache.set(pdfUrl, result);
+    }
+    pdfAvailabilityPending.delete(pdfUrl);
+    return result;
+  })();
+
+  pdfAvailabilityPending.set(pdfUrl, pendingPromise);
+  return pendingPromise;
+}
+
+function markPdfUnavailable(paper, reason = 'unreachable') {
+  if (!paper?.pdfUrl) return;
+  pdfAvailabilityCache.set(paper.pdfUrl, { status: PDF_STATUS.UNAVAILABLE, reason });
+  refreshPdfButtonsForPaper(paper);
+}
+
 // 打开PDF预览
-function openPdfViewer(id) {
-  const paper = papersData.find(p => p.id === id);
+async function openPdfViewer(id) {
+  const paper = papersData.find(p => isSamePaperId(p.id, id));
   if (!paper) return;
 
   currentPdfPaper = paper;
 
   const modalTitle = document.getElementById("pdfModalTitle");
-  const pdfViewer = document.getElementById("pdfViewer");
-  const pdfViewerContainer = document.getElementById("pdfViewerContainer");
-  const pdfNoSource = document.getElementById("pdfNoSource");
-  const pdfDownloadBtn = document.getElementById("pdfDownloadBtn");
-  const pdfOpenBtn = document.getElementById("pdfOpenBtn");
-
   modalTitle.textContent = paper.title;
-
-  if (paper.pdfUrl) {
-    // 有PDF链接
-    pdfViewerContainer.style.display = 'block';
-    pdfNoSource.style.display = 'none';
-
-    // 使用Google Docs Viewer预览PDF
-    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(paper.pdfUrl)}&embedded=true`;
-    pdfViewer.src = viewerUrl;
-
-    // 设置下载按钮
-    pdfDownloadBtn.style.display = 'flex';
-    pdfOpenBtn.style.display = 'flex';
-    pdfOpenBtn.href = paper.pdfUrl;
-  } else {
-    // 无PDF - 获取论文介绍页面URL
-    let paperPageUrl = paper.url;
-
-    // 如果URL是直接PDF链接，转换为论文介绍页
-    if (paperPageUrl && paperPageUrl.includes('.pdf')) {
-      // SSRN PDF链接转论文介绍页
-      if (paperPageUrl.includes('ssrn.com')) {
-        const match = paperPageUrl.match(/abstract_id=(\d+)/);
-        if (match) {
-          paperPageUrl = `https://papers.ssrn.com/sol3/papers.cfm?abstract_id=${match[1]}`;
-        }
-      }
-      // NBER PDF链接转论文介绍页
-      if (paperPageUrl.includes('nber.org')) {
-        const match = paperPageUrl.match(/w(\d+)/);
-        if (match) {
-          paperPageUrl = `https://www.nber.org/papers/w${match[1]}`;
-        }
-      }
-    }
-
-    if (paperPageUrl) {
-      // 打开论文介绍页面
-      pdfViewerContainer.style.display = 'none';
-      pdfNoSource.style.display = 'flex';
-      pdfDownloadBtn.style.display = 'none';
-      pdfOpenBtn.style.display = 'none';
-      // 修改"暂无可用PDF"区域的按钮，让第一个按钮直接打开论文页面
-      const altBtns = pdfNoSource.querySelectorAll('.pdf-alt-btn');
-      if (altBtns.length > 0) {
-        altBtns[0].onclick = () => window.open(paperPageUrl, '_blank');
-        altBtns[0].innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>查看论文页面`;
-      }
-    } else {
-      // 真的什么都没有
-      pdfViewerContainer.style.display = 'none';
-      pdfNoSource.style.display = 'flex';
-      pdfDownloadBtn.style.display = 'none';
-      pdfOpenBtn.style.display = 'none';
-    }
-  }
 
   const modal = document.getElementById("pdfModal");
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
+
+  if (!paper.pdfUrl) {
+    showPdfNoSource(paper, '暂无可用 PDF', '该论文暂无 PDF 资源，您可以：');
+    return;
+  }
+
+  showPdfCheckingState();
+  const availability = await ensurePdfAvailability(paper.pdfUrl);
+
+  if (availability.status === PDF_STATUS.UNAVAILABLE) {
+    markPdfUnavailable(paper, availability.reason);
+    showPdfNoSource(paper, 'PDF 暂时不可访问', '该链接当前无法打开，已自动灰色显示。', true);
+    return;
+  }
+
+  showPdfPreview(paper);
+  refreshPdfButtonsForPaper(paper);
 }
 
 function closePdfModal() {
@@ -1110,15 +1346,6 @@ function searchPaperOnline() {
 function requestPdf() {
   alert("感谢您的反馈！我们会尽快添加该论文的PDF资源。");
   closePdfModal();
-}
-
-// 更新论文卡片的PDF按钮
-function updatePaperCardPdfButton(paper) {
-  if (paper.pdfUrl) {
-    return `<a href="#" class="paper-link paper-link-primary" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>`;
-  } else {
-    return `<a href="#" class="paper-link paper-link-disabled" title="暂无可用PDF" onclick="event.preventDefault(); openPdfViewer(${paper.id});">PDF</a>`;
-  }
 }
 
 function searchByTag(tag) {
@@ -1177,6 +1404,10 @@ document.querySelectorAll(".mobile-nav-item").forEach(item => {
 // 每日推送"查看全部"点击事件
 document.querySelector(".daily-push-more")?.addEventListener("click", async (e) => {
   e.preventDefault();
+  if (dailyPushMoreMode === 'today_more' && allTodayPapers.length > 5) {
+    showAllTodayPapers();
+    return;
+  }
   await showPushHistory();
 });
 
@@ -1184,6 +1415,7 @@ document.querySelector(".daily-push-more")?.addEventListener("click", async (e) 
 async function showPushHistory() {
   const paperList = document.getElementById("paperList");
   const pageTitle = document.getElementById("pageTitle");
+  const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
   pageTitle.textContent = "推送历史";
   paperList.innerHTML = '<div class="loading">加载中...</div>';
@@ -1202,35 +1434,46 @@ async function showPushHistory() {
     data.history.forEach(dayPush => {
       const date = new Date(dayPush.date);
       const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+      const weekday = WEEKDAY_LABELS[date.getDay()];
+      const windowStart = new Date(date);
+      windowStart.setDate(windowStart.getDate() - 2);
+      const windowStr = `${windowStart.getFullYear()}年${windowStart.getMonth() + 1}月${windowStart.getDate()}日 - ${dateStr}`;
 
       html += `
         <div class="push-history-day">
-          <h3 class="push-history-date">${dateStr}</h3>
+          <h3 class="push-history-date">推送日期：${dateStr}（${weekday}）</h3>
+          <div class="push-history-window">统计窗口：${windowStr}</div>
           <div class="push-history-papers">
       `;
 
-      dayPush.papers.forEach(paper => {
-        const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
-        const isHot = paper.citations > 5000;
-        const categoryClass = getCategoryClass(paper.category) || paper.category;
-
+      if (!dayPush.hasNewPapers || !Array.isArray(dayPush.papers) || dayPush.papers.length === 0) {
         html += `
-          <div class="paper-card" onclick="viewPaper('${paper.id}')">
-            <div class="paper-header">
-              <span class="paper-category ${categoryClass}">${paper.category}</span>
-              ${isNew ? '<span class="paper-badge new">🆕</span>' : ''}
-              ${isHot ? '<span class="paper-badge hot">🔥</span>' : ''}
-            </div>
-            <h3 class="paper-title">${paper.title}</h3>
-            <div class="paper-meta">
-              <span class="paper-authors">${paper.authors.join(', ')}</span>
-              <span class="paper-source">${paper.source || paper.venue || 'arXiv'}</span>
-              <span class="paper-date">${paper.date}</span>
-            </div>
-            <p class="paper-abstract">${paper.abstract}</p>
-          </div>
+          <div class="push-history-empty">${dayPush.message || '该日期无推送内容'}</div>
         `;
-      });
+      } else {
+        dayPush.papers.forEach(paper => {
+          const isNew = (new Date() - new Date(paper.date)) < 30 * 24 * 60 * 60 * 1000;
+          const isHot = paper.citations > 5000;
+          const categoryClass = getCategoryClass(paper.category) || paper.category;
+
+          html += `
+            <div class="paper-card" onclick="viewPaper('${paper.id}')">
+              <div class="paper-header">
+                <span class="paper-category ${categoryClass}">${paper.category}</span>
+                ${isNew ? '<span class="paper-badge new">🆕</span>' : ''}
+                ${isHot ? '<span class="paper-badge hot">🔥</span>' : ''}
+              </div>
+              <h3 class="paper-title">${paper.title}</h3>
+              <div class="paper-meta">
+                <span class="paper-authors">${paper.authors.join(', ')}</span>
+                <span class="paper-source">${paper.source || paper.venue || 'arXiv'}</span>
+                <span class="paper-date">${paper.date}</span>
+              </div>
+              <p class="paper-abstract">${paper.abstract}</p>
+            </div>
+          `;
+        });
+      }
 
       html += `
           </div>
@@ -1278,6 +1521,21 @@ function getDailyPushPapers() {
 
 // 存储今日推送的全部论文（用于查看全部）
 let allTodayPapers = [];
+let dailyPushMoreMode = 'history';
+
+function updateDailyPushMoreButton(dailyPushMore, pushPapers = []) {
+  if (!dailyPushMore) return;
+
+  if (pushPapers.length > 5) {
+    dailyPushMoreMode = 'today_more';
+    dailyPushMore.textContent = `更多 (${pushPapers.length}) →`;
+  } else {
+    dailyPushMoreMode = 'history';
+    dailyPushMore.textContent = '推送历史 →';
+  }
+
+  dailyPushMore.style.display = '';
+}
 
 // 渲染推送卡片
 function renderPushCards(papers, container) {
@@ -1324,7 +1582,7 @@ async function renderDailyPush() {
           <div class="push-empty-text">${data.message || '今日暂无内容'}</div>
         </div>
       `;
-      if (dailyPushMore) dailyPushMore.style.display = 'none';
+      updateDailyPushMoreButton(dailyPushMore, []);
       return;
     }
 
@@ -1332,17 +1590,11 @@ async function renderDailyPush() {
     const displayPapers = pushPapers.slice(0, 5);
     renderPushCards(displayPapers, pushGrid);
 
-    // 如果超过5篇，显示查看全部
-    if (pushPapers.length > 5 && dailyPushMore) {
-      dailyPushMore.style.display = '';
-      dailyPushMore.textContent = `查看全部 (${pushPapers.length}) →`;
-    } else if (dailyPushMore) {
-      dailyPushMore.style.display = 'none';
-    }
+    updateDailyPushMoreButton(dailyPushMore, pushPapers);
   } catch (error) {
     console.error('获取每日推送失败:', error);
     pushGrid.innerHTML = '<p>暂无推送</p>';
-    if (dailyPushMore) dailyPushMore.style.display = 'none';
+    updateDailyPushMoreButton(dailyPushMore, []);
   }
 }
 
@@ -1356,10 +1608,8 @@ function showAllTodayPapers() {
   // 渲染全部论文
   renderPushCards(allTodayPapers, pushGrid);
 
-  // 隐藏查看全部按钮
-  if (dailyPushMore) {
-    dailyPushMore.style.display = 'none';
-  }
+  // 展开当日全部后，按钮切换为“推送历史”
+  updateDailyPushMoreButton(dailyPushMore, []);
 }
 
 // 存储推送历史到localStorage
@@ -1392,27 +1642,64 @@ const API_BASE = '';
 // ===================================
 async function loadPapersFromAPI() {
   try {
-    const response = await fetch(`${API_BASE}/api/papers`);
-    const data = await response.json();
-    console.log('API Response:', data);
-    console.log('papers type:', typeof data.papers, 'length:', data.papers?.length);
-    if (data.papers && data.papers.length > 0) {
-      // 转换为前端格式
-      return data.papers.map(p => ({
-        id: p.id,
-        title: p.title,
-        authors: p.authors || [],
-        source: p.source || 'arXiv',
-        date: p.date,
-        abstract: p.abstract,
-        category: p.category,
-        subcategory: p.subcategory,
-        tags: p.tags || [],
-        citations: p.citations || 0,
-        pdfUrl: p.pdfUrl || '',
-        url: p.url || `https://arxiv.org/abs/${p.id}`
-      }));
+    const pageLimit = 200;
+    const firstResponse = await fetch(`${API_BASE}/api/papers?page=1&limit=${pageLimit}`);
+    if (!firstResponse.ok) {
+      throw new Error(`HTTP ${firstResponse.status}`);
     }
+
+    const firstPage = await firstResponse.json();
+    const totalPages = Math.max(Number(firstPage.totalPages || 1), 1);
+    const allRawPapers = Array.isArray(firstPage.papers) ? [...firstPage.papers] : [];
+
+    if (totalPages > 1) {
+      const restPages = [];
+      for (let page = 2; page <= totalPages; page += 1) {
+        restPages.push(
+          fetch(`${API_BASE}/api/papers?page=${page}&limit=${pageLimit}`)
+            .then(resp => {
+              if (!resp.ok) throw new Error(`HTTP ${resp.status} (page ${page})`);
+              return resp.json();
+            })
+            .then(data => Array.isArray(data.papers) ? data.papers : [])
+        );
+      }
+      const restResults = await Promise.all(restPages);
+      restResults.forEach(items => allRawPapers.push(...items));
+    }
+
+    // 去重：按 title|doi|url，避免不同论文因 id 冲突被误删
+    const deduped = new Map();
+    allRawPapers.forEach(p => {
+      const title = String(p.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const doi = String(p.doi || '').toLowerCase().trim();
+      const url = String(p.url || '').toLowerCase().trim();
+      const key = `${title}|${doi}|${url}`;
+      if (!deduped.has(key)) {
+        deduped.set(key, p);
+      }
+    });
+
+    const normalized = Array.from(deduped.values()).map(p => ({
+      id: p.id,
+      title: p.title,
+      authors: p.authors || [],
+      source: p.source || 'arXiv',
+      date: p.date,
+      abstract: p.abstract,
+      category: p.category,
+      subcategory: p.subcategory,
+      tags: p.tags || [],
+      citations: p.citations || 0,
+      pdfUrl: p.pdfUrl || '',
+      url: p.url || `https://arxiv.org/abs/${p.id}`
+    }));
+
+    console.log('API all pages loaded:', normalized.length, 'papers; totalPages =', totalPages);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
     console.log('No papers found in API response');
     return null;
   } catch (error) {

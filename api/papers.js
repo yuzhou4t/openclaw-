@@ -1,14 +1,13 @@
 /**
  * 论文 API
- * 使用 OpenAlex API 获取六大分类的精选论文
- * 计量经济学、金融机器学习、行为金融、巨灾保险、农业保险、普惠金融
+ * 使用统一 source service 聚合六大分类论文
  */
 
-const openalex = require('./openalex');
-const { searchPapers: firecrawlSearch } = require('../lib/firecrawl');
+const { getUnifiedPapers, CATEGORIES } = require('../lib/sourceService');
 
 // 缓存合并后的论文数据
 let mergedPapersCache = null;
+let mergedStatusesCache = null;
 let lastFetchTime = null;
 const CACHE_DURATION = 60 * 60 * 1000; // 1小时
 
@@ -19,65 +18,31 @@ async function getMergedPapers(forceRefresh = false) {
   const now = Date.now();
 
   if (!forceRefresh && mergedPapersCache && lastFetchTime && (now - lastFetchTime < CACHE_DURATION)) {
-    return mergedPapersCache;
+    return {
+      papers: mergedPapersCache,
+      sourceStatuses: mergedStatusesCache || {}
+    };
   }
 
-  console.log('[Papers] Fetching papers from OpenAlex...');
-
-  const categories = ['计量经济学', '金融机器学习', '行为金融', '巨灾保险', '农业保险', '普惠金融'];
-  let allPapers = [];
-
-  // 计算上周日期范围
-  const today = new Date();
-  const lastWeekEnd = new Date(today);
-  lastWeekEnd.setDate(today.getDate() - today.getDay() - 6); // 上周日
-  const lastWeekStart = new Date(lastWeekEnd);
-  lastWeekStart.setDate(lastWeekEnd.getDate() - 6); // 上周一
-  const dateFrom = lastWeekStart.toISOString().split('T')[0];
-  const dateTo = lastWeekEnd.toISOString().split('T')[0];
-  console.log(`[Papers] Fetching for date range: ${dateFrom} to ${dateTo}`);
-
-  // 并行获取各分类论文（OpenAlex + Firecrawl）
-  const results = await Promise.all(
-    categories.map(async cat => {
-      try {
-        // OpenAlex 论文
-        const oaPapers = await openalex.getPapersByTopic(cat, 5, { dateFrom, dateTo });
-        // Firecrawl 论文（来自 SSRN/NBER）
-        const fcPapers = await firecrawlSearch(cat, 3, { dateFrom, dateTo });
-        return [...oaPapers, ...fcPapers];
-      } catch (e) {
-        console.log(`[Papers] ${cat} error:`, e.message);
-        return [];
-      }
-    })
-  );
-
-  // 合并所有论文
-  results.forEach((papers, idx) => {
-    if (papers && papers.length > 0) {
-      allPapers.push(...papers);
-    }
+  const unified = await getUnifiedPapers({
+    categories: CATEGORIES,
+    perSourceLimit: 6,
+    forceRefresh
   });
 
-  // 过滤掉未来日期的论文（双重保险）
-  const todayStr = today.getUTCFullYear() + '-' +
-    String(today.getUTCMonth() + 1).padStart(2, '0') + '-' +
-    String(today.getUTCDate()).padStart(2, '0');
-  allPapers = allPapers.filter(p => !p.date || p.date <= todayStr);
-
-  // 按日期排序
-  allPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  mergedPapersCache = allPapers;
+  mergedPapersCache = unified.papers || [];
+  mergedStatusesCache = unified.sourceStatuses || {};
   lastFetchTime = now;
-  console.log(`[Papers] Merged ${mergedPapersCache.length} papers`);
+  console.log(`[Papers] Merged ${mergedPapersCache.length} papers from unified sources`);
 
-  return mergedPapersCache;
+  return {
+    papers: mergedPapersCache,
+    sourceStatuses: mergedStatusesCache
+  };
 }
 
 module.exports = async (req, res) => {
-  const { category, keyword, page = 1, limit = 100 } = req.query;
+  const { category, keyword, sourceId, sourceStatus, page = 1, limit = 100, refresh = '0' } = req.query;
 
   // 解析路径
   let path = req.url.split('?')[0];
@@ -88,20 +53,32 @@ module.exports = async (req, res) => {
 
   // /api/papers - 获取论文列表
   if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === 'papers')) {
-    const allPapers = await getMergedPapers();
+    const forceRefresh = refresh === '1' || refresh === 'true';
+    const { papers: allPapers, sourceStatuses } = await getMergedPapers(forceRefresh);
     let filtered = [...allPapers];
 
     if (category && category !== 'all') {
       filtered = filtered.filter(p => p.category === category);
     }
 
+    if (sourceId) {
+      filtered = filtered.filter(p => p.sourceId === sourceId);
+    }
+
     if (keyword) {
       const kw = keyword.toLowerCase();
       filtered = filtered.filter(p =>
-        p.title.toLowerCase().includes(kw) ||
-        p.abstract.toLowerCase().includes(kw) ||
+        (p.title || '').toLowerCase().includes(kw) ||
+        (p.abstract || '').toLowerCase().includes(kw) ||
         (Array.isArray(p.authors) && p.authors.some(a => a.toLowerCase().includes(kw)))
       );
+    }
+
+    if (sourceStatus) {
+      const allowedIds = Object.values(sourceStatuses)
+        .filter(s => s.status === sourceStatus)
+        .map(s => s.sourceId);
+      filtered = filtered.filter(p => allowedIds.includes(p.sourceId));
     }
 
     filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -117,13 +94,14 @@ module.exports = async (req, res) => {
       total: filtered.length,
       page: currentPage,
       limit: currentLimit,
-      totalPages: Math.ceil(filtered.length / currentLimit)
+      totalPages: Math.ceil(filtered.length / currentLimit),
+      sourceStatuses
     });
   }
 
   // /api/papers/hot - 获取热门论文
   if (pathParts.includes('hot')) {
-    const allPapers = await getMergedPapers();
+    const { papers: allPapers } = await getMergedPapers();
     const hotPapers = [...allPapers]
       .sort((a, b) => b.citations - a.citations)
       .slice(0, 10);
@@ -136,10 +114,10 @@ module.exports = async (req, res) => {
     const query = decodeURIComponent(pathParts[queryIndex + 1] || '');
     const kw = query.toLowerCase();
 
-    const allPapers = await getMergedPapers();
+    const { papers: allPapers } = await getMergedPapers();
     const results = allPapers.filter(p =>
-      p.title.toLowerCase().includes(kw) ||
-      p.abstract.toLowerCase().includes(kw) ||
+      (p.title || '').toLowerCase().includes(kw) ||
+      (p.abstract || '').toLowerCase().includes(kw) ||
       (Array.isArray(p.authors) && p.authors.some(a => a.toLowerCase().includes(kw))) ||
       (Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(kw)))
     );
@@ -150,7 +128,7 @@ module.exports = async (req, res) => {
   // /api/papers/:id - 获取单个论文详情
   if (pathParts.length === 2 && !pathParts.includes('hot') && !pathParts.includes('search')) {
     const id = pathParts[1];
-    const allPapers = await getMergedPapers();
+    const { papers: allPapers } = await getMergedPapers();
     const paper = allPapers.find(p => p.id === id);
     if (paper) {
       return res.status(200).json(paper);
