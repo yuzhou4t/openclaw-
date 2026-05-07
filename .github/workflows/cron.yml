@@ -11,7 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger PaperHub Cron API
+        env:
+          PAPERHUB_CRON_URL: https://paperhub-liart.vercel.app/api/cron
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://api.yourpaperhub.workers.dev/api/cron
+          set -euo pipefail
+
+          if [ -n "$CRON_SECRET" ]; then
+            curl --fail --show-error --silent --retry 2 --retry-delay 5 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$PAPERHUB_CRON_URL"
+          else
+            curl --fail --show-error --silent --retry 2 --retry-delay 5 \
+              "$PAPERHUB_CRON_URL"
+          fi
